@@ -1,0 +1,17 @@
+{
+  "name": "ner-smart-logistics",
+  "version": "1.0.0",
+  "description": "Risk-aware freight routing for India's North Eastern Region: plans consignments around landslides, floods and closed corridors, finds real handover points, and files field incident reports.",
+  "author": {
+    "name": "NER Smart Logistics (SIH)"
+  },
+  "keywords": [
+    "logistics",
+    "routing",
+    "disaster-response",
+    "supply-chain",
+    "north-east-india",
+    "accessibility"
+  ],
+  "license": "MIT"
+}

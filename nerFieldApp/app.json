@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "NER Field Reporter",
+    "slug": "ner-field-reporter",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "nerfield",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#070a0e",
+    "splash": {
+      "backgroundColor": "#070a0e",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "in.gov.ner.fieldreporter",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Your location is attached to an incident report so responders know exactly which stretch of road is affected.",
+        "NSCameraUsageDescription": "A photograph of the obstruction helps a verifier decide whether to close the corridor.",
+        "NSPhotoLibraryUsageDescription": "Attach an existing photograph of the obstruction to your report."
+      }
+    },
+    "android": {
+      "package": "in.gov.ner.fieldreporter",
+      "adaptiveIcon": {
+        "backgroundColor": "#070a0e"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-location",
+      "expo-image-picker"
+    ],
+    "extra": {
+      "apiBaseUrl": ""
+    }
+  }
+}

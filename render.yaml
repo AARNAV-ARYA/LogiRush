@@ -1,0 +1,24 @@
+# Render blueprint for the backend.
+# The frontend deploys separately on Vercel (see routeOptimiserFrontend/vercel.json).
+#
+# After the first deploy, set CORS_ORIGINS to the deployed frontend URL so the API is not
+# left open to every origin.
+services:
+  - type: web
+    name: ner-logistics-backend
+    runtime: docker
+    dockerfilePath: ./routeOptimiserBackend/Dockerfile
+    dockerContext: ./routeOptimiserBackend
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: CORS_ORIGINS
+        sync: false      # set to your frontend URL in the Render dashboard
+      - key: DATABASE_URL
+        sync: false      # set to your Neon/Postgres connection string
+      # The backend seeds a demonstration roster on first run, and those passwords are in
+      # this repository. Set this to 1 on any deployment reachable from the internet and
+      # create real accounts instead — see DEPLOY.md.
+      - key: NER_DISABLE_DEMO_SEED
+        sync: false

@@ -1,0 +1,43 @@
+# SAMPLE / MOCK DATA — inputs for the Disaster Prediction Engine (Module 2).
+# Terrain fields (slope_gradient_deg, elevation_m) are rough physical approximations for the
+# corridor, chosen to be directionally sensible: hill corridors (NH10, NH29, NH306, NH37
+# Jiribam-Imphal) carry steeper slope and higher elevation than the Brahmaputra valley
+# corridors (NH27 Guwahati-Nagaon-Jorhat), which instead carry higher flood history.
+# rainfall_mm_24h and forecast_rainfall_mm_48h represent a single frozen "current conditions"
+# snapshot for demo purposes — a real deployment would refresh these from a live weather feed.
+# historical_landslides_5y / historical_floods_5y are SYNTHETIC event counts, NOT sourced from
+# GSI, NDMA, ASDMA or any official disaster record.
+# road_vulnerability_index is 0-100 (higher = more vulnerable infrastructure).
+segment_id,rainfall_mm_24h,forecast_rainfall_mm_48h,slope_gradient_deg,elevation_m,historical_landslides_5y,historical_floods_5y,road_vulnerability_index
+RS001,85,140,25,1200,12,3,80
+RS002,60,95,22,1400,7,1,65
+RS003,20,35,4,80,1,6,35
+RS004,30,45,5,90,1,7,40
+RS005,25,40,4,70,0,8,40
+RS006,35,55,3,85,0,9,45
+RS007,45,70,3,100,1,10,45
+RS008,40,65,5,95,2,11,50
+RS009,70,110,18,350,8,4,65
+RS010,25,40,8,320,2,1,25
+RS011,75,120,20,600,10,5,70
+RS012,95,150,20,900,9,2,60
+RS013,80,130,17,1200,6,1,55
+RS014,70,115,16,800,7,3,70
+RS015,90,145,22,700,14,6,75
+RS016,100,165,26,900,15,7,80
+RS017,75,120,24,1000,9,3,65
+RS018,65,100,12,200,5,9,60
+RS019,110,175,28,800,16,6,85
+RS020,50,80,12,850,4,3,45
+RS021,35,55,6,150,3,8,45
+RS022,85,135,27,1100,18,2,85
+RS023,75,120,24,1300,13,3,75
+RS024,40,60,5,40,1,7,35
+RS025,45,70,7,60,2,8,45
+RS026,55,85,9,80,3,9,50
+RS027,80,130,19,600,11,4,70
+RS028,40,60,6,140,2,7,45
+RS029,85,135,25,950,13,4,75
+RS030,50,80,14,300,5,6,55
+RS031,30,50,5,120,1,8,45
+RS032,45,70,10,200,4,10,55

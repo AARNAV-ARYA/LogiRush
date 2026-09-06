@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ner-logistics": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.py"],
+      "env": {
+        "NER_API_BASE_URL": "http://localhost:5001"
+      }
+    }
+  }
+}

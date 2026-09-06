@@ -1,0 +1,36 @@
+# Backend ignores
+routeOptimiserBackend/venv/
+routeOptimiserBackend/__pycache__/
+routeOptimiserBackend/*.pyc
+
+# Added for the NER platform
+**/__pycache__/
+*.pyc
+.pytest_cache/
+routeOptimiserBackend/.env
+routeOptimiserBackend/logs/*.log
+# Local database and trained model artefacts are generated, not source.
+routeOptimiserBackend/data/processed/*.db
+routeOptimiserBackend/data/processed/models/
+.DS_Store
+
+# Frontend ignores
+routeOptimiserFrontend/node_modules/
+routeOptimiserFrontend/.env
+nerFieldApp/.env
+routeOptimiserFrontend/dist/
+
+# Mobile app (Expo)
+nerFieldApp/node_modules/
+nerFieldApp/.expo/
+nerFieldApp/dist/
+
+# Generated during local runs and CI, never source.
+*.log
+e2e-*.png
+routeOptimiserBackend/backend.log
+routeOptimiserFrontend/preview.log
+
+# Lockfiles ARE committed on purpose: CI caches on them and the hosts build from them, so
+# ignoring one means every deploy resolves different dependency versions than the machine
+# the code was tested on.

@@ -1,0 +1,35 @@
+# SAMPLE DATA — NOT an authoritative government dataset.
+# Town/district names and coordinates are real (public knowledge), used only to make the
+# demo geographically plausible for the 8 North Eastern states of India plus the Siliguri
+# gateway node (the "Chicken's Neck" corridor connecting NER to the rest of India).
+# District field is an approximation (assumes the town is its own district HQ, true for most
+# entries here) and should be verified against Census/State Revenue Dept. records before any
+# production use.
+id,name,state,latitude,longitude,district
+LOC001,Siliguri,West Bengal,26.7271,88.3953,Darjeeling
+LOC002,Guwahati,Assam,26.1445,91.7362,Kamrup Metropolitan
+LOC003,Tezpur,Assam,26.6528,92.7926,Sonitpur
+LOC004,Nagaon,Assam,26.3475,92.6840,Nagaon
+LOC005,Jorhat,Assam,26.7509,94.2037,Jorhat
+LOC006,Dibrugarh,Assam,27.4728,94.9120,Dibrugarh
+LOC007,Silchar,Assam,24.8333,92.7789,Cachar
+LOC008,North Lakhimpur,Assam,27.2358,94.1050,Lakhimpur
+LOC009,Shillong,Meghalaya,25.5788,91.8933,East Khasi Hills
+LOC010,Jowai,Meghalaya,25.4500,92.2000,West Jaintia Hills
+LOC011,Tura,Meghalaya,25.5138,90.2027,West Garo Hills
+LOC012,Aizawl,Mizoram,23.7271,92.7176,Aizawl
+LOC013,Lunglei,Mizoram,22.8833,92.7333,Lunglei
+LOC014,Kohima,Nagaland,25.6751,94.1086,Kohima
+LOC015,Dimapur,Nagaland,25.9091,93.7264,Dimapur
+LOC016,Imphal,Manipur,24.8170,93.9368,Imphal West
+LOC017,Churachandpur,Manipur,24.3333,93.6833,Churachandpur
+LOC018,Jiribam,Manipur,24.8064,93.1176,Jiribam
+LOC019,Itanagar,Arunachal Pradesh,27.0844,93.6053,Papum Pare
+LOC020,Naharlagun,Arunachal Pradesh,27.1040,93.6950,Papum Pare
+LOC021,Pasighat,Arunachal Pradesh,28.0667,95.3333,East Siang
+LOC022,Gangtok,Sikkim,27.3389,88.6065,East Sikkim
+LOC023,Namchi,Sikkim,27.1667,88.3667,South Sikkim
+LOC024,Agartala,Tripura,23.8315,91.2868,West Tripura
+LOC025,Udaipur,Tripura,23.5333,91.4833,Gomati
+LOC026,Dharmanagar,Tripura,24.3667,92.1667,North Tripura
+LOC027,Lumding,Assam,25.7500,93.1667,Hojai

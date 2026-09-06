@@ -1,0 +1,27 @@
+pandas
+networkx
+googlemaps
+haversine
+pyyaml
+plotly
+kaleido
+geopy==2.4.1
+folium==0.15.1
+flask==3.0.2
+flask_cors
+pytest
+
+# --- Added for the NER intelligence platform ---
+scikit-learn        # Disaster Prediction Engine (Module 2) - Random Forest
+joblib              # model persistence
+SQLAlchemy>=2.0     # incident/shipment persistence (SQLite locally, PostgreSQL in prod)
+psycopg2-binary     # PostgreSQL driver (only used when DATABASE_URL points at Postgres)
+gunicorn            # production WSGI server
+
+# --- Added for live rainfall (Module 2b) ---
+certifi             # CA bundle for the Open-Meteo TLS handshake. Pinned explicitly rather
+                    # than relied on transitively (it currently arrives via googlemaps ->
+                    # requests): if that dependency ever goes, live weather would silently
+                    # fall back to the shipped snapshot on any host whose system trust store
+                    # Python cannot read, and the platform would quietly stop being live
+                    # without anything failing.

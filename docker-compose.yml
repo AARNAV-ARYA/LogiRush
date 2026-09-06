@@ -1,0 +1,53 @@
+# Full local stack: PostgreSQL + backend.
+#
+# Runs the backend against Postgres rather than SQLite, so the production database path is
+# exercised locally before deploying — schema issues that only appear on Postgres (types,
+# constraints, timezone-aware timestamps) show up here rather than in production.
+#
+#   docker compose up --build
+#   docker compose exec backend python seed_demo_data.py
+#
+# The frontend is not containerised: it is a static build that deploys to Vercel. Run it with
+# `npm run dev` and point VITE_API_BASE_URL at http://localhost:5001.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ner
+      POSTGRES_PASSWORD: ner_local_dev
+      POSTGRES_DB: ner_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - ner_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The backend must not start before Postgres can actually accept queries, otherwise
+      # init_db() races the database and the tables are silently skipped.
+      test: ["CMD-SHELL", "pg_isready -U ner -d ner_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./routeOptimiserBackend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://ner:ner_local_dev@db:5432/ner_platform
+      CORS_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
+      PORT: "5001"
+    ports:
+      - "5001:5001"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  ner_pgdata:

@@ -1,0 +1,543 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  NER Smart Logistics — dark geospatial command centre.
+
+  The previous theme inherited a neon cyan/pink gradient from the template it was built on.
+  It read as a product landing page, not as something an emergency operations officer stares
+  at for eight hours during a monsoon. This palette is built for the opposite job: a quiet,
+  near-black canvas so the map is the brightest thing on screen, and colour spent only where
+  it carries meaning.
+
+  Colour is assigned by the job it does, not by taste:
+
+    * Magnitude (how impeded a corridor is) uses ONE hue, stepped light to dark. It is
+      validated as an ordinal ramp: monotone lightness, visible step gaps, and the dimmest
+      step still clears the surface. A good road recedes into the background; a degraded one
+      glows. That is the correct default for a screen someone is scanning for trouble.
+    * State (open / under repair / blocked / closed) uses the reserved status roles. These
+      are never reused as chart series colours, and they always ship with an icon and a
+      label, so colour alone never carries the meaning.
+    * Series identity (transport modes on the cost curve) uses a fixed categorical order,
+      validated for colour-vision deficiency against this exact surface.
+
+  The old scale ran green → lime → yellow → orange → red. That is a rainbow: it fails
+  colourblind separation (lime against yellow measured ΔE 2.3 under protanopia, where 8 is
+  the target) and its lightness peaks in the middle, so it does not even read as ordered in
+  greyscale or on a projector. Everywhere colour could have carried meaning alone — corridors
+  on the map especially — a second channel is added: dash pattern, stroke width, an icon.
+*/
+
+@layer base {
+  :root {
+    /* Every token is declared twice: once as a hex value for inline styles, SVG fills and
+       anything JavaScript reads, and once as bare RGB channels for Tailwind.
+       
+       The channel form is not redundant. Tailwind writes an opacity modifier as
+       `rgb(<colour> / <alpha>)`, which is only valid if <colour> is channels — give it a
+       finished `var(--accent)` and the declaration is invalid, so `bg-accent/10` silently
+       computes to transparent and the element renders with no background at all. That
+       failure is invisible in code review and only shows up as a washed-out UI. */
+    --plane-rgb:            7 10 14;
+    --surface-rgb:          15 20 27;
+    --surface-raised-rgb:   22 29 38;
+    --surface-sunken-rgb:   10 14 19;
+    --ink-rgb:              230 237 245;
+    --ink-secondary-rgb:    159 178 198;
+    --ink-muted-rgb:        109 130 153;
+    --accent-rgb:           56 189 248;
+    --accent-dim-rgb:       14 116 144;
+    --imp-1-rgb:            90 76 60;
+    --imp-2-rgb:            143 97 41;
+    --imp-3-rgb:            201 120 43;
+    --imp-4-rgb:            240 162 76;
+    --imp-5-rgb:            255 205 147;
+    --status-good-rgb:      12 163 12;
+    --status-warning-rgb:   250 178 25;
+    --status-serious-rgb:   236 131 90;
+    --status-critical-rgb:  208 59 59;
+    --series-1-rgb:         57 135 229;
+    --series-2-rgb:         217 89 38;
+    --series-3-rgb:         25 158 112;
+    --series-4-rgb:         201 133 0;
+
+    /* ---- surfaces: deep, blue-black, so the map is the luminous element ---- */
+    --plane:            #070a0e;   /* page behind everything */
+    --surface:          #0f141b;   /* panels, chart surface (palette validated against this) */
+    --surface-raised:   #161d26;   /* cards sitting on a panel, popovers, map overlays */
+    --surface-sunken:   #0a0e13;   /* wells, table headers, inset areas */
+    --hairline:         rgba(255, 255, 255, 0.08);
+    --hairline-strong:  rgba(255, 255, 255, 0.14);
+
+    /* ---- ink ---- */
+    --ink:              #e6edf5;
+    --ink-secondary:    #9fb2c6;
+    --ink-muted:        #6d8299;
+    --grid:             #1c242f;   /* chart gridlines, recessive by design */
+    --axis:             #2a3644;
+
+    /* ---- interaction accent: one signal colour, used sparingly ---- */
+    --accent:           #38bdf8;
+    --accent-dim:       #0e7490;
+
+    /* ---- sequential ramp: corridor impediment (100 − accessibility) ----
+       One hue (11° spread), monotone lightness, every adjacent gap ≥ 0.06 L, dimmest step
+       2.23:1 on --surface. Brighter means worse, so hazards are what draws the eye.
+
+       The range is deliberately wide. Real corridor scores cluster in the middle of the
+       scale, and a narrow ramp made every road on the map the same orange — the encoding
+       was technically correct and operationally useless. Pushing the healthy end almost to
+       neutral means twenty sound corridors go quiet and the eye lands on the two that are
+       failing, which is the entire job of the screen. */
+    --imp-1: #5a4c3c;   /* barely impeded — nearly neutral, sinks into the surface */
+    --imp-2: #8f6129;
+    --imp-3: #c9782b;
+    --imp-4: #f0a24c;
+    --imp-5: #ffcd93;   /* severely impeded — glows */
+
+    /* ---- reserved status roles: state, never magnitude, never a series ---- */
+    --status-good:      #0ca30c;
+    --status-warning:   #fab219;
+    --status-serious:   #ec835a;
+    --status-critical:  #d03b3b;
+
+    /* ---- categorical series (transport modes) ----
+       Fixed order. Validated on --surface: worst adjacent CVD ΔE 8.4, normal-vision 19.8. */
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+
+    /* ---- derived aliases for common states ---- */
+    --text-error: #f08a8a;
+    --bg-error: rgba(208, 59, 59, 0.14);
+    --border-error: rgba(208, 59, 59, 0.5);
+    --text-error-light: #f0b4b4;
+    --bg-error-light: rgba(208, 59, 59, 0.1);
+    --border-error-light: rgba(208, 59, 59, 0.4);
+
+    --text-success: #5ec95e;
+    --bg-success-light: rgba(12, 163, 12, 0.08);
+    --border-success-light: rgba(12, 163, 12, 0.35);
+
+    --text-warning: #fab219;
+    --bg-warning-light: rgba(250, 178, 25, 0.07);
+    --border-warning-light: rgba(250, 178, 25, 0.35);
+    --text-warning-dim: #d9ad6b;
+
+    --text-serious: #ef9a44;
+    --bg-serious-light: rgba(240, 162, 76, 0.1);
+    --border-serious-light: rgba(240, 162, 76, 0.35);
+
+    --bg-contrast: #04202b;
+  }
+
+  body {
+    background-color: var(--plane);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    -webkit-text-size-adjust: 100%;
+    /* A faint cool wash from the top, the way a map application frames its canvas. */
+    background-image: radial-gradient(1200px 600px at 50% -10%, rgba(56, 189, 248, 0.05), transparent 70%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--ink);
+    font-weight: 600;
+    letter-spacing: -0.011em;
+  }
+
+  h1 { font-size: 1.5rem; line-height: 1.2; }
+
+  /* Numbers that sit in columns or update in place must not jitter. */
+  .tabular-nums, table, .stat-value { font-variant-numeric: tabular-nums; }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection { background: rgba(56, 189, 248, 0.3); }
+
+  /* Scrollbars, so dense panels do not punch a bright hole in a dark UI. */
+  * { scrollbar-width: thin; scrollbar-color: #2a3644 transparent; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: #223041; border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+  *::-webkit-scrollbar-thumb:hover { background: #2f4155; background-clip: content-box; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* ---------------------------------------------------------------- surfaces */
+
+  .panel {
+    background-color: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 0.75rem;
+  }
+
+  /* Panels that float over the map. Blur keeps the corridor beneath legible as context
+     while the panel stays readable — the thing that makes a map feel like the application
+     rather than a picture embedded in one. */
+  .panel-glass {
+    background-color: rgba(15, 20, 27, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    /* A backdrop-filter samples whatever is painted behind it, so every corridor redraw and
+       every map pan would otherwise re-blur the panel. `contain` tells the browser the
+       panel's own painting stops at its border, which keeps that work off the map's
+       critical path; `transform: translateZ(0)` gives it its own composited layer so the
+       blurred result can be reused instead of recomputed frame by frame. */
+    contain: paint;
+    transform: translateZ(0);
+  }
+
+  /* Blur is the single most expensive thing on this screen. Anyone who has asked their
+     system for less motion and less visual effect gets a solid panel instead — which is
+     also, not coincidentally, what a low-powered field device should be drawing. */
+  @media (prefers-reduced-transparency: reduce), (prefers-reduced-motion: reduce) {
+    .panel-glass {
+      background-color: rgb(15, 20, 27);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+
+  .panel-raised {
+    background-color: var(--surface-raised);
+    border: 1px solid var(--hairline);
+    border-radius: 0.625rem;
+  }
+
+  .hairline { border-color: var(--hairline); }
+
+  /* ---------------------------------------------------------------- type */
+
+  .label-micro {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+  }
+
+  .stat-value {
+    font-size: 1.75rem;
+    line-height: 1.1;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  /* Small chips: compact for a pointer, comfortable for a thumb. `coarse` covers phones
+     and tablets without penalising desktop density. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--hairline-strong);
+    color: var(--ink-secondary);
+    transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+    white-space: nowrap;
+  }
+  .chip:hover { border-color: rgba(255, 255, 255, 0.22); color: var(--ink); }
+  .chip[aria-pressed="true"], .chip.is-active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background-color: rgba(56, 189, 248, 0.1);
+  }
+
+  @media (pointer: coarse) {
+    .chip { min-height: 2.25rem; padding-left: 0.75rem; padding-right: 0.75rem; }
+  }
+
+  /* ---------------------------------------------------------------- forms */
+
+  .field {
+    display: block;
+    width: 100%;
+    margin-top: 0.375rem;
+    background-color: var(--surface-sunken);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    color: var(--ink);
+    /* 16px on phones stops iOS zooming the viewport when a field takes focus — a real
+       problem for someone filling this in one-handed at a roadside. */
+    font-size: 1rem;
+    transition: border-color 0.15s, background-color 0.15s;
+  }
+  @media (min-width: 640px) { .field { font-size: 0.875rem; } }
+
+  .field:hover { border-color: rgba(255, 255, 255, 0.2); }
+  .field:focus { outline: none; border-color: var(--accent); background-color: var(--surface); }
+  .field:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .field-label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+  }
+
+  /* ---------------------------------------------------------------- buttons */
+
+  .btn, .btn-primary, .btn-ghost, .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.875rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    /* 44px minimum touch target: this is used in gloves, in rain, on a phone. */
+    min-height: 2.5rem;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+
+  .btn:disabled, .btn-primary:disabled, .btn-ghost:disabled, .btn-danger:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background-color: var(--accent);
+    color: #04202b;
+    font-weight: 600;
+  }
+  .btn-primary:hover:not(:disabled) { background-color: #5cc9fa; }
+
+  .btn-ghost {
+    border-color: var(--hairline-strong);
+    color: var(--ink-secondary);
+    background-color: transparent;
+  }
+  .btn-ghost:hover:not(:disabled) { background-color: var(--surface-raised); color: var(--ink); }
+
+  .btn-danger {
+    border-color: rgba(208, 59, 59, 0.5);
+    color: #f08a8a;
+    background-color: transparent;
+  }
+  .btn-danger:hover:not(:disabled) { background-color: rgba(208, 59, 59, 0.14); }
+
+  /* ---- state utility classes ----
+
+     Two families, deliberately separate. `.tone-*` colours TEXT and nothing else; `.state-*`
+     dresses a CONTAINER — colour, tint and border together. Collapsing them into one set is
+     what put a filled orange bar behind a metric value: a class that carries a background is
+     harmless on a chip and wrong on a number, and a `<p>` is full-width, so the tint spans
+     the cell. Anything passed around as a `tone` prop must come from the first family. */
+
+  .tone-good    { color: var(--text-success); }
+  .tone-warn    { color: var(--text-warning); }
+  .tone-serious { color: var(--text-serious); }
+  .tone-bad     { color: var(--text-error); }
+
+  /* Inline text links are the right size for a mouse and too small for a thumb. Rather than
+     pad them everywhere and loosen the prose, they grow a hit area only where the pointer is
+     coarse — the phone gets 44 px, the desktop keeps its typography. */
+  @media (pointer: coarse) {
+    .link-inline { display: inline-flex; align-items: center; min-height: 2.75rem; }
+  }
+
+
+  /* Error state: high-contrast, reserved for failures and blocking issues */
+  .state-error { color: var(--text-error); }
+  .state-error-light { color: var(--text-error-light); background-color: var(--bg-error-light); border-color: var(--border-error-light); }
+  .state-error-bg { background-color: var(--bg-error); }
+
+  /* Success/good state: paths are clear */
+  .state-success { color: var(--text-success); background-color: var(--bg-success-light); border-color: var(--border-success-light); }
+
+  /* Warning state: delayed or impacted but passable */
+  .state-warning { color: var(--text-warning); background-color: var(--bg-warning-light); border-color: var(--border-warning-light); }
+  .state-warning-dim { color: var(--text-warning-dim); }
+
+  /* Serious state: significant impediment, difficult passage */
+  .state-serious { color: var(--text-serious); background-color: var(--bg-serious-light); border-color: var(--border-serious-light); }
+
+  /* Legacy template classes, kept so any unconverted markup still renders sanely
+     on the new surfaces instead of falling back to unstyled defaults. */
+  .neon-card { background-color: var(--surface); border: 1px solid var(--hairline); border-radius: 0.75rem; }
+  .neon-button { background-color: var(--accent); color: var(--bg-contrast); font-weight: 600; }
+  .neon-input { background-color: var(--surface-sunken); border: 1px solid var(--hairline-strong); color: var(--ink); }
+  .neon-border { border: 1px solid var(--hairline-strong); border-radius: 0.75rem; }
+  .heading-plain { color: var(--ink); }
+}
+
+/* ---------------------------------------------------------------- map chrome */
+
+/* Turning a light basemap dark in the browser.
+
+   The alternative was a vendor's ready-made dark style, which is what put "API KEY REQUIRED"
+   across the map. Inverting plain OSM costs one compositing pass and no account:
+
+     invert + hue-rotate(180deg)  flips lightness while putting hues back where they started,
+                                  so water stays blue-ish rather than becoming orange
+     brightness / contrast        pulls the result down to the surface tone so the corridor
+                                  overlay stays the brightest thing on screen
+     saturate(0.55)               drains the road-atlas colouring that would otherwise
+                                  compete with the impediment ramp
+
+   Only the tile pane is filtered. Applying it to the whole map would invert our own
+   corridors, markers and labels too — which is exactly the bug this guards against. */
+.ner-map-tiles-light .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.86) contrast(1.08) saturate(0.55);
+  /* Leaflet pans by transforming this pane. Declaring the filter as changing lets the
+     browser keep the filtered tiles on their own composited layer and simply move that
+     layer, instead of re-running a five-stage filter chain over every tile each frame —
+     which is the difference between a map that drags smoothly and one that stutters. */
+  will-change: filter, transform;
+}
+
+/* A provider already serving dark tiles needs no correction. */
+.ner-map-tiles-dark .leaflet-tile-pane { filter: none; }
+
+/* Real satellite/aerial photography needs the opposite treatment from the old road-atlas
+   invert above — inverting a photograph gives you a garish negative, not a dark map. What
+   photography actually needs to sit under a dark UI without glaring is just tonal
+   correction:
+
+     brightness(0.55) contrast(1.2)   pulls the exposure down to the surface's dark register
+                                       and keeps the terrain — ridgelines, river braids,
+                                       cloud cover — from washing out against it
+     saturate(1.15)                   real imagery reads a little flat once darkened; a
+                                       small saturation lift keeps vegetation and water
+                                       distinguishable instead of collapsing into grey-green
+
+   No hue-rotate: unlike the invert trick, nothing here touches hue, so colours stay true
+   to the actual photograph. Only the tile pane is filtered, for the same reason as above —
+   the corridor overlay, markers and labels must stay untouched. */
+.ner-map-tiles-satellite .leaflet-tile-pane {
+  filter: brightness(0.55) contrast(1.2) saturate(1.15);
+  will-change: filter, transform;
+}
+
+/* Leaflet ships a light-grey canvas and white controls, which punch holes in a dark UI —
+   most visibly wherever a tile fails to load, which on a field connection is often. */
+div.leaflet-container {
+  background: var(--surface-sunken);
+  font-family: inherit;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--surface-raised);
+  color: var(--ink);
+  border: 1px solid var(--hairline-strong);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.leaflet-popup-content-wrapper { border-radius: 0.625rem; }
+.leaflet-popup-content { margin: 12px 14px; line-height: 1.5; font-size: 0.8125rem; }
+.leaflet-popup-close-button { color: var(--ink-muted) !important; }
+
+.leaflet-bar a,
+.leaflet-bar a:hover {
+  background: var(--surface-raised) !important;
+  color: var(--ink) !important;
+  border-color: var(--hairline) !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(10, 14, 19, 0.8) !important;
+  color: var(--ink-muted) !important;
+  font-size: 10px !important;
+}
+.leaflet-control-attribution a { color: var(--ink-secondary) !important; }
+
+/* ---------------------------------------------------------------- loading */
+
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--surface-raised);
+  border-radius: 0.375rem;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(90deg, rgba(255,255,255,0) 0, rgba(255,255,255,0.04) 20%, rgba(255,255,255,0.07) 60%, rgba(255,255,255,0));
+  animation: shimmer 1.6s infinite;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn { animation: fadeIn 0.25s ease-out forwards; }
+
+/* A slow pulse for the live-status dot. Deliberately gentle: an operations screen that
+   blinks at you all day is one people stop looking at. */
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.animate-live { animation: livePulse 2.4s ease-in-out infinite; }
+
+/* Town labels on the map. Deliberately low-key: they are orientation, not content, and at
+   27 of them a heavier treatment would compete with the corridors they are there to
+   identify. A dark halo keeps them legible over both the basemap and bare background. */
+.leaflet-tooltip.ner-town-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: #b9c8d8;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 0;
+  white-space: nowrap;
+  text-shadow: 0 0 3px #05080c, 0 0 6px #05080c, 0 1px 2px #05080c;
+}
+.leaflet-tooltip.ner-town-label::before { display: none; }
+
+/* Regional hubs read a step stronger than minor towns, so the eye can find Guwahati or
+   Imphal in a dense cluster without hunting. */
+.leaflet-tooltip.ner-town-label.ner-town-major {
+  color: #e6edf5;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* The severity slider is the one control a reporter must set precisely while standing at a
+   blocked road, so on touch screens it gets a full-height hit area rather than the browser
+   default track, which is only a few pixels tall. */
+input[type="range"] { accent-color: var(--accent); }
+@media (pointer: coarse) {
+  input[type="range"] { height: 2.25rem; }
+}

@@ -1,0 +1,43 @@
+# SAMPLE / MOCK DATA — for hackathon demonstration only.
+# Distances are approximate road distances along real known corridors (e.g. NH27, NH10, NH29).
+# road_status, weather_risk, landslide_risk, flood_risk, incident_risk and delay_factor are
+# SYNTHETIC placeholder values chosen to be illustrative of known problem corridors
+# (e.g. NH10 Siliguri-Gangtok and NH29 Dimapur-Kohima are widely reported landslide corridors,
+# so they carry higher sample landslide_risk here). They are NOT sourced from IMD, GSI, CWC,
+# BRO or any state PWD feed. This file exists purely so the Accessibility Intelligence Engine
+# and Risk-Aware Routing modules have realistic-shaped data to operate on until real data
+# providers are wired in behind the same adapter interface (see ner_data_provider.py).
+# All risk columns are on a 0-100 scale (0 = no risk, 100 = maximum risk).
+id,source,destination,distance_km,highway_corridor,road_status,weather_risk,landslide_risk,flood_risk,incident_risk,delay_factor
+RS001,LOC001,LOC022,115,NH10,Open,45,80,20,15,35
+RS002,LOC022,LOC023,78,SH (Sikkim),Open,35,55,10,10,25
+RS003,LOC001,LOC002,600,NH27,Open,20,10,30,10,15
+RS004,LOC002,LOC003,175,NH15,Open,25,15,25,10,15
+RS005,LOC002,LOC004,115,NH27,Open,20,10,35,10,20
+RS006,LOC004,LOC005,140,NH37/NH27,Open,20,10,40,10,20
+RS007,LOC005,LOC006,85,NH37,Open,25,10,45,15,20
+RS008,LOC002,LOC008,290,NH15,Open,25,20,40,15,25
+RS009,LOC008,LOC019,90,NH415,Partially Blocked,40,45,25,20,40
+RS010,LOC019,LOC020,10,Local Road,Open,10,5,5,5,10
+RS011,LOC020,LOC021,270,NH13,Open,45,50,30,20,45
+RS012,LOC002,LOC009,100,NH40,Open,35,60,15,20,35
+RS013,LOC009,LOC010,65,NH40,Open,30,50,10,15,30
+RS014,LOC009,LOC011,220,SH (Meghalaya),Under Repair,35,55,15,25,50
+RS015,LOC002,LOC007,330,NH6/NH27,Open,40,65,35,20,40
+RS016,LOC007,LOC012,180,NH306,Partially Blocked,45,75,40,30,55
+RS017,LOC012,LOC013,150,NH54/NH302,Open,30,55,20,20,35
+RS018,LOC007,LOC018,110,NH37,Open,35,45,45,20,35
+RS019,LOC018,LOC016,110,NH37,Closed,50,70,50,35,65
+RS020,LOC016,LOC017,65,NH2,Open,25,30,15,15,25
+RS021,LOC002,LOC015,280,NH27,Open,25,20,30,10,20
+RS022,LOC015,LOC014,74,NH29,Partially Blocked,40,85,15,25,55
+RS023,LOC014,LOC016,140,NH2/NH102B,Open,35,60,20,20,40
+RS024,LOC024,LOC025,55,NH8,Open,20,15,25,10,15
+RS025,LOC024,LOC026,110,NH8,Open,25,20,35,15,20
+RS026,LOC026,LOC007,90,NH8,Open,30,35,40,15,25
+RS027,LOC010,LOC007,180,NH6,Open,40,60,30,20,40
+RS028,LOC015,LOC005,90,NH39,Open,25,20,35,10,20
+RS029,LOC012,LOC017,250,NH2/NH150,Partially Blocked,40,70,25,25,50
+RS030,LOC003,LOC019,200,NH15/NH415,Open,30,35,30,15,30
+RS031,LOC004,LOC027,90,NH36,Open,20,10,45,10,20
+RS032,LOC027,LOC007,230,NH27 (Lumding-Badarpur),Open,30,25,50,15,30
