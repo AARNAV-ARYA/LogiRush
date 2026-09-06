@@ -403,6 +403,13 @@ Place search uses OpenStreetMap via Photon and Overpass. OSM data is [ODbL-licen
       </a><br />
       <sub>Contributor</sub>
     </td>
+    <td align="center">
+      <a href="https://github.com/rahul-vaidhya">
+        <img src="https://github.com/rahul-vaidhya.png" width="96" alt="rahul-vaidhya" /><br />
+        <sub><b>Rahul Vaidhya</b></sub>
+      </a><br />
+      <sub>Contributor</sub>
+    </td>
   </tr>
 </table>
 
