@@ -42,6 +42,7 @@ Risk-aware routing · Live weather · ML disaster prediction · Community incide
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
@@ -49,6 +50,7 @@ Risk-aware routing · Live weather · ML disaster prediction · Community incide
 - [Testing](#testing)
 - [Deployment](#deployment)
 - [Data & Disclaimers](#data--disclaimers)
+- [Contributors](#contributors)
 - [Contributing](#contributing)
 
 ---
@@ -341,6 +343,68 @@ eas build --platform android --profile preview
 Every API response carries `"data_source"` provenance. The dashboard shows the model's training origin inline. Do not present any figure from this system as official government data.
 
 Place search uses OpenStreetMap via Photon and Overpass. OSM data is [ODbL-licensed](https://www.openstreetmap.org/copyright); attribution is carried in every response.
+
+---
+
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/dashboard.png" alt="Control-Room Dashboard" />
+      <br /><sub><b>Control-Room Dashboard</b> — live accessibility scores, corridor status, active incidents</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/accessibility-map.png" alt="Accessibility Map" />
+      <br /><sub><b>Accessibility Map</b> — corridor network coloured by real-time risk score</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/shipment-planner.png" alt="Shipment Planner" />
+      <br /><sub><b>Shipment Planner</b> — risk-aware A* routing with cargo profile selection</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/incident-queue.png" alt="Incident Review Queue" />
+      <br /><sub><b>Incident Review Queue</b> — dual-countersign verification, audit trail</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/field-app-report.png" alt="Field App — Report Incident" />
+      <br /><sub><b>Field App</b> — GPS-attached incident reporting with offline queue</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/field-app-nearby.png" alt="Field App — Nearby Incidents" />
+      <br /><sub><b>Field App</b> — nearby incidents and connection test</sub>
+    </td>
+  </tr>
+</table>
+
+> Live at **[logirush-console.onrender.com](https://logirush-console.onrender.com)** — sign in as `controller` / `control123` to explore the full console.
+
+---
+
+## Contributors
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/AARNAV-ARYA">
+        <img src="https://github.com/AARNAV-ARYA.png" width="96" alt="AARNAV-ARYA" /><br />
+        <sub><b>Aarnav Arya</b></sub>
+      </a><br />
+      <sub>Architecture · Backend · Frontend · Mobile</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/deviantecho">
+        <img src="https://github.com/deviantecho.png" width="96" alt="deviantecho" /><br />
+        <sub><b>Devesh Kumar Singh</b></sub>
+      </a><br />
+      <sub>Contributor</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
