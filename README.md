@@ -351,32 +351,32 @@ Place search uses OpenStreetMap via Photon and Overpass. OSM data is [ODbL-licen
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="docs/screenshots/dashboard.png" alt="Control-Room Dashboard" />
-      <br /><sub><b>Control-Room Dashboard</b> — live accessibility scores, corridor status, active incidents</sub>
+      <img src="docs/screenshots/dashboard.png" alt="Operations Overview" />
+      <br /><sub><b>Operations Overview</b> — network accessibility score, disruption risk, live corridor map, field reports feed</sub>
     </td>
     <td align="center" width="50%">
-      <img src="docs/screenshots/accessibility-map.png" alt="Accessibility Map" />
-      <br /><sub><b>Accessibility Map</b> — corridor network coloured by real-time risk score</sub>
+      <img src="docs/screenshots/accessibility-map.png" alt="Corridor Network Map" />
+      <br /><sub><b>Corridor Network</b> — 32 corridors, accessibility scores, degraded routes highlighted in amber</sub>
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
       <img src="docs/screenshots/shipment-planner.png" alt="Shipment Planner" />
-      <br /><sub><b>Shipment Planner</b> — risk-aware A* routing with cargo profile selection</sub>
+      <br /><sub><b>Shipment Planner</b> — risk-aware A* routing, 8 transport modes, cargo profile selection</sub>
     </td>
     <td align="center" width="50%">
-      <img src="docs/screenshots/incident-queue.png" alt="Incident Review Queue" />
-      <br /><sub><b>Incident Review Queue</b> — dual-countersign verification, audit trail</sub>
+      <img src="docs/screenshots/convoys.png" alt="Convoys — Active Shipments" />
+      <br /><sub><b>Convoys</b> — active shipment lifecycle with re-check and status tracking</sub>
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
-      <img src="docs/screenshots/field-app-report.png" alt="Field App — Report Incident" />
-      <br /><sub><b>Field App</b> — GPS-attached incident reporting with offline queue</sub>
+      <img src="docs/screenshots/incident-queue.png" alt="Incident Review Queue" />
+      <br /><sub><b>Incident Review</b> — dual-countersign verification queue with severity tags and audit trail</sub>
     </td>
     <td align="center" width="50%">
-      <img src="docs/screenshots/field-app-nearby.png" alt="Field App — Nearby Incidents" />
-      <br /><sub><b>Field App</b> — nearby incidents and connection test</sub>
+      <img src="docs/screenshots/report-incident.png" alt="Report an Incident" />
+      <br /><sub><b>Report an Incident</b> — GPS location, severity slider, offline-ready with 2.1 MB device cache</sub>
     </td>
   </tr>
 </table>
