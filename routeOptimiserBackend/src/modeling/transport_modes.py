@@ -78,6 +78,33 @@ AIRHEADS = {
     "LOC021", "LOC022", "LOC024",
 }
 
+# The curated North Eastern sets, frozen, for anything that needs to know what was original.
+RAILHEADS_NER = frozenset(RAILHEADS)
+RIVER_TERMINALS_NER = frozenset(RIVER_TERMINALS)
+AIRHEADS_NER = frozenset(AIRHEADS)
+
+# Which waterway each river terminal is on. A barge cannot sail from a Ganga terminal to a
+# Brahmaputra one inside India, so waterway service requires both ends on the same system.
+RIVER_SYSTEM = {loc_id: "NW2" for loc_id in RIVER_TERMINALS}
+
+
+def register_infrastructure(locations) -> None:
+    """Add the Pan-India network's railheads, airports and river terminals.
+
+    The mode table below holds references to RAILHEADS / RIVER_TERMINALS / AIRHEADS, so adding
+    to those sets extends every mode that uses them without touching the table. The Pan-India
+    provider calls this once with its locations (whose flags come from india_locations.csv).
+    Idempotent, and it only ever adds — the curated North Eastern sets are never reduced.
+    """
+    for loc in locations:
+        if getattr(loc, "railhead", False):
+            RAILHEADS.add(loc.id)
+        if getattr(loc, "airport", False):
+            AIRHEADS.add(loc.id)
+        if getattr(loc, "river_terminal", False):
+            RIVER_TERMINALS.add(loc.id)
+            RIVER_SYSTEM.setdefault(loc.id, getattr(loc, "river_system", None) or "NW1")
+
 # --- Mode definitions ------------------------------------------------------------------
 #
 # capacity_kg          payload one vehicle/wagon/sortie can carry
@@ -158,13 +185,17 @@ TRANSPORT_MODES = {
         "min_accessibility": 58.0,
         "network": "road",
         "endpoints": None,
+        # Terrain suitability (policy assumption): 25 t articulated rigs are not routed over
+        # hairpin ghat roads or high passes, where turning radius and axle load rule them out
+        # regardless of how good the surface is today.
+        "excluded_road_classes": ("hill_road", "high_altitude_pass"),
         "co2_g_per_tonne_km": 68.0,
         "note": "Cheapest per tonne on good national highway, but the access threshold is "
                 "high: it is restricted to well-maintained NH corridors and will be routed "
                 "the long way round rather than over a weak hill segment.",
     },
     "rail": {
-        "label": "Rail freight (NF Railway)",
+        "label": "Rail freight (Indian Railways)",
         "category": "Rail",
         "capacity_kg": 60000,
         "fixed_inr": 24000.0,
@@ -182,7 +213,7 @@ TRANSPORT_MODES = {
                 "wagon placement plus terminal handling adds most of a day.",
     },
     "waterway": {
-        "label": "Inland waterway barge (NW2 Brahmaputra)",
+        "label": "Inland waterway barge (NW1 Ganga / NW2 Brahmaputra)",
         "category": "Waterway",
         "capacity_kg": 120000,
         "fixed_inr": 31000.0,
@@ -195,8 +226,9 @@ TRANSPORT_MODES = {
         "network": "water",
         "endpoints": RIVER_TERMINALS,
         "co2_g_per_tonne_km": 22.0,
-        "note": "Cheapest heavy option along the Brahmaputra and completely independent of the "
-                "road network, which matters when highways are cut. Slow, and river level "
+        "note": "Cheapest heavy option along the Brahmaputra (NW2) or the Ganga (NW1), and "
+                "completely independent of the road network, which matters when highways are cut. "
+                "Both ends must be on the same waterway. Slow, and river level "
                 "and silting make the schedule less dependable than rail.",
     },
     "air_heli": {
@@ -316,10 +348,20 @@ def duration_hours(distance_km: float, mode_id: str, road_hours: float | None = 
 
 def mode_serves(origin_id: str, destination_id: str, mode_id: str) -> bool:
     """Does this mode physically connect these two places?"""
-    endpoints = TRANSPORT_MODES[mode_id]["endpoints"]
+    mode = TRANSPORT_MODES[mode_id]
+    endpoints = mode["endpoints"]
     if endpoints is None:
         return True
-    return origin_id in endpoints and destination_id in endpoints
+    if not (origin_id in endpoints and destination_id in endpoints):
+        return False
+    if mode["network"] == "water":
+        return RIVER_SYSTEM.get(origin_id) == RIVER_SYSTEM.get(destination_id)
+    return True
+
+
+def excluded_road_classes(mode_id: str) -> frozenset:
+    """Road classes a vehicle class is not routed over (terrain suitability)."""
+    return frozenset(TRANSPORT_MODES[mode_id].get("excluded_road_classes") or ())
 
 
 def infrastructure_gap(origin_id: str, destination_id: str, mode_id: str, name_of) -> str | None:
@@ -330,6 +372,10 @@ def infrastructure_gap(origin_id: str, destination_id: str, mode_id: str, name_o
         return None
     missing = [p for p in (origin_id, destination_id) if p not in endpoints]
     if not missing:
+        if mode["network"] == "water" and RIVER_SYSTEM.get(origin_id) != RIVER_SYSTEM.get(destination_id):
+            return (f"{name_of(origin_id)} ({RIVER_SYSTEM.get(origin_id)}) and "
+                    f"{name_of(destination_id)} ({RIVER_SYSTEM.get(destination_id)}) are on "
+                    f"different waterways.")
         return None
     kind = {"rail": "railhead", "water": "river terminal", "air": "airport or helipad"}[mode["network"]]
     names = " and ".join(name_of(m) for m in missing)
@@ -349,6 +395,7 @@ def list_modes() -> list:
             "min_accessibility": m["min_accessibility"],
             "network": m["network"],
             "requires_infrastructure": m["endpoints"] is not None,
+            "excluded_road_classes": list(m.get("excluded_road_classes") or ()),
             "co2_g_per_tonne_km": m["co2_g_per_tonne_km"],
             "rate_card": {
                 "dispatch_per_vehicle_inr": m["fixed_inr"],

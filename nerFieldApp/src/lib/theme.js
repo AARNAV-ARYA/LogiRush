@@ -49,6 +49,14 @@ export const INCIDENT_TYPES = [
   { id: "bridge_damage", label: "Bridge damage" },
   { id: "accident", label: "Accident" },
   { id: "other", label: "Other" },
+  // Pan-India: the disruptions other terrains produce. Must match the backend taxonomy
+  // (routeOptimiserBackend/src/modeling/incident_types.py) or the server rejects the report.
+  { id: "waterlogging", label: "Waterlogging" },
+  { id: "snow_blockage", label: "Snow blockage" },
+  { id: "avalanche", label: "Avalanche" },
+  { id: "cyclone_damage", label: "Cyclone / storm debris" },
+  { id: "dense_fog", label: "Dense fog" },
+  { id: "heat_damage", label: "Heat damage" },
 ];
 
 export const typeLabel = (id) =>

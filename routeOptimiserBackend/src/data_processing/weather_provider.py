@@ -93,7 +93,19 @@ CACHE_TTL_S = int(os.environ.get("WEATHER_CACHE_TTL_S", "900"))
 # there, and a slow answer is worse than an honest old one.
 TIMEOUT_S = float(os.environ.get("WEATHER_TIMEOUT_S", "4.0"))
 
-USER_AGENT = "ner-logistics-platform/1.0 (SIH demo; corridor rainfall)"
+USER_AGENT = "logirush-india/2.0 (SIH demo; corridor weather)"
+
+# Hourly variables requested per point. Rainfall drives the NER model and the IMD rainfall
+# ladder; temperature, wind, snowfall and visibility feed the Pan-India terrain hazards (heat,
+# cyclone/wind, snow, fog). Open-Meteo units: mm, deg C, km/h, cm, metres.
+HOURLY_VARIABLES = (
+    "precipitation", "temperature_2m", "wind_speed_10m", "wind_gusts_10m", "snowfall", "visibility",
+)
+
+# Open-Meteo accepts many coordinates per request, but a URL carrying the whole Pan-India
+# network's sample points is long enough to worry a proxy. Chunks keep every request modest;
+# they are fetched concurrently so the network costs one round-trip of wall time.
+MAX_COORDS_PER_REQUEST = 100
 
 
 def rainfall_to_weather_risk(mm_24h: float, mm_48h: float) -> float:
@@ -178,11 +190,32 @@ class OpenMeteoWeatherProvider:
     # -------------------------------------------------------------- network
 
     def _fetch(self, coordinates: list[tuple[float, float]]) -> dict:
-        """One request for every coordinate. Raises on failure; the caller decides."""
+        """Every coordinate, in as few requests as the chunk size allows. Raises on failure.
+
+        A partial failure fails the whole fetch on purpose: a map where some corridors are live
+        and others silently fell back is harder to reason about than one honest fallback.
+        """
+        chunks = [
+            coordinates[i:i + MAX_COORDS_PER_REQUEST]
+            for i in range(0, len(coordinates), MAX_COORDS_PER_REQUEST)
+        ]
+        if len(chunks) <= 1:
+            return self._fetch_chunk(coordinates)
+
+        from concurrent.futures import ThreadPoolExecutor
+
+        readings = {}
+        with ThreadPoolExecutor(max_workers=min(4, len(chunks))) as pool:
+            for part in pool.map(self._fetch_chunk, chunks):
+                readings.update(part)
+        return readings
+
+    def _fetch_chunk(self, coordinates: list[tuple[float, float]]) -> dict:
+        """One request for up to MAX_COORDS_PER_REQUEST coordinates."""
         query = urllib.parse.urlencode({
             "latitude": ",".join(f"{lat:.4f}" for lat, _ in coordinates),
             "longitude": ",".join(f"{lon:.4f}" for _, lon in coordinates),
-            "hourly": "precipitation",
+            "hourly": ",".join(HOURLY_VARIABLES),
             # past_days=1 gives the 24 h that have already happened; forecast_days=3 covers
             # the 48 h ahead with room for the partial current hour at either end.
             "past_days": "1",
@@ -213,8 +246,16 @@ class OpenMeteoWeatherProvider:
         Never raises. On failure it returns a snapshot carrying the error and no readings,
         which every caller treats as "keep the values you already have".
         """
+        wanted = {_key(lat, lon) for lat, lon in coordinates}
         with self._lock:
-            if self._snapshot is not None and self._snapshot.is_fresh():
+            # Fresh AND covering what was asked for: the Pan-India provider samples more points
+            # than the NER one did, and a cache filled for a smaller set must not answer for a
+            # larger one with half the corridors missing.
+            if (
+                self._snapshot is not None
+                and self._snapshot.is_fresh()
+                and wanted <= set(self._snapshot.readings)
+            ):
                 return self._snapshot
 
         started = time.time()
@@ -222,7 +263,7 @@ class OpenMeteoWeatherProvider:
             readings = self._fetch(coordinates)
             snapshot = _Snapshot(readings, time.time())
             logger.info(
-                "Live rainfall for %d corridors in %.2fs (Open-Meteo).",
+                "Live weather for %d sample points in %.2fs (Open-Meteo).",
                 len(readings), time.time() - started,
             )
         except Exception as e:
@@ -251,6 +292,7 @@ class OpenMeteoWeatherProvider:
             "source": "Open-Meteo (DWD ICON / ECMWF / NOAA GFS model output)",
             "official_imd": False,
             "corridors": len(snapshot.readings),
+            "variables": list(HOURLY_VARIABLES),
             "fetched_at": datetime.fromtimestamp(snapshot.fetched_at, tz=timezone.utc).isoformat(),
             "age_seconds": round(snapshot.age_s, 1),
             "cache_ttl_seconds": CACHE_TTL_S,
@@ -263,12 +305,23 @@ def _key(lat: float, lon: float) -> tuple:
 
 
 def _accumulate(entry: dict) -> dict:
-    """Turn an hourly precipitation series into the two totals the model wants.
+    """Turn hourly series into the per-point figures the hazard engine wants.
 
     Open-Meteo returns hours in order, `past_days` first, so the hour matching "now" splits
-    the series into what has fallen and what is forecast. Finding that index by timestamp
+    the series into what has happened and what is forecast. Finding that index by timestamp
     rather than assuming a fixed offset is what keeps this correct across time zones and the
     partial hour the API is currently inside.
+
+        rain_24h        precipitation summed over the last 24 h              (mm)
+        rain_48h        precipitation summed over the next 48 h              (mm)
+        tmax_c / tmin_c extreme temperature, last 24 h to next 48 h          (deg C)
+        wind_kmh        peak sustained 10 m wind, last 6 h to next 48 h      (km/h)
+        gust_kmh        peak gust over the same window                       (km/h)
+        snow_cm         snowfall summed, last 24 h + next 48 h               (cm)
+        visibility_m    lowest visibility over the next 24 h                 (m)
+
+    A variable the response does not carry is simply absent from the result — "no data" is
+    a different statement from "zero", and the hazard engine treats it that way.
     """
     hourly = entry.get("hourly") or {}
     times = hourly.get("time") or []
@@ -285,13 +338,38 @@ def _accumulate(entry: dict) -> dict:
         # past_days=1 puts "now" 24 hours in; falling back to that is better than refusing.
         split = min(24, len(times))
 
-    def total(values):
-        return round(sum(v for v in values if isinstance(v, (int, float))), 1)
+    def numbers(values):
+        return [v for v in values if isinstance(v, (int, float))]
 
-    return {
+    def total(values):
+        return round(sum(numbers(values)), 1)
+
+    result = {
         "rain_24h": total(precipitation[max(0, split - 24):split]),
         "rain_48h": total(precipitation[split:split + 48]),
     }
+
+    def window(name, start, end):
+        series = hourly.get(name) or []
+        return numbers(series[max(0, split + start):max(0, split + end)])
+
+    temps = window("temperature_2m", -24, 48)
+    if temps:
+        result["tmax_c"] = round(max(temps), 1)
+        result["tmin_c"] = round(min(temps), 1)
+    wind = window("wind_speed_10m", -6, 48)
+    if wind:
+        result["wind_kmh"] = round(max(wind), 1)
+    gusts = window("wind_gusts_10m", -6, 48)
+    if gusts:
+        result["gust_kmh"] = round(max(gusts), 1)
+    snow = window("snowfall", -24, 48)
+    if snow:
+        result["snow_cm"] = round(sum(snow), 1)
+    visibility = window("visibility", 0, 24)
+    if visibility:
+        result["visibility_m"] = round(min(visibility), 0)
+    return result
 
 
 # One provider for the process. The cache is the point, and a per-request instance would

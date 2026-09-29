@@ -52,7 +52,7 @@ OVERPASS_URL = os.environ.get("OVERPASS_URL", "https://overpass-api.de/api/inter
 # gives up quickly; the alternative is getting the whole project's IP range blocked mid-demo.
 USER_AGENT = os.environ.get(
     "OSM_USER_AGENT",
-    "NER-Smart-Logistics/1.0 (SIH demonstration project; contact via repository)",
+    "LogiRush-India/2.0 (SIH demonstration project; contact via repository)",
 )
 REMOTE_TIMEOUT_S = float(os.environ.get("PLACES_TIMEOUT_S", "4.0"))
 CACHE_TTL_S = int(os.environ.get("PLACES_CACHE_TTL_S", "900"))
@@ -64,6 +64,23 @@ OSM_ATTRIBUTION = "© OpenStreetMap contributors (ODbL)"
 # the suggestions feel local rather than merely correct.
 NER_BBOX = {"min_lon": 87.5, "min_lat": 21.5, "max_lon": 97.5, "max_lat": 29.6}
 NER_CENTER = (25.8, 92.5)
+
+# Pan-India: the mainland plus a margin. Same reasoning — "Salem" should be Tamil Nadu, not
+# Oregon — at national scale.
+INDIA_BBOX = {"min_lon": 68.0, "min_lat": 6.5, "max_lon": 97.5, "max_lat": 37.5}
+INDIA_CENTER = (22.5, 80.0)
+
+
+def _search_area():
+    """(bbox, centre) for the network the platform is serving."""
+    try:
+        from src.services.accessibility_service import network_mode
+
+        if network_mode() == "ner":
+            return NER_BBOX, NER_CENTER
+    except Exception:  # pragma: no cover
+        pass
+    return INDIA_BBOX, INDIA_CENTER
 
 # What counts as somewhere you can hand over cargo. Deliberately broad: in much of the region
 # the practical parcel point is a bus stand counter or a fuel station on the highway, not a
@@ -222,13 +239,14 @@ class OSMPlaceProvider:
         if cached is not None:
             return cached
 
+        bbox, centre = _search_area()
         params = urllib.parse.urlencode({
             "q": q,
             "limit": limit,
             "lang": "en",
-            "lat": NER_CENTER[0],
-            "lon": NER_CENTER[1],
-            "bbox": f"{NER_BBOX['min_lon']},{NER_BBOX['min_lat']},{NER_BBOX['max_lon']},{NER_BBOX['max_lat']}",
+            "lat": centre[0],
+            "lon": centre[1],
+            "bbox": f"{bbox['min_lon']},{bbox['min_lat']},{bbox['max_lon']},{bbox['max_lat']}",
         })
         try:
             payload = _get_json(f"{PHOTON_URL}?{params}")

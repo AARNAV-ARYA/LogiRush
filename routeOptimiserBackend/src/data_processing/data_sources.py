@@ -40,7 +40,186 @@ DATA_DIR = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "raw", "ner")
 )
 
+INDIA_DATA_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "raw", "india")
+)
+
 TRUST_LEVELS = ["live", "sample", "synthetic", "derived"]
+
+
+def _india_file_meta(filename: str) -> dict:
+    """Like _file_meta, for the Pan-India data directory."""
+    path = os.path.join(INDIA_DATA_DIR, filename)
+    meta = {"file": f"routeOptimiserBackend/data/raw/india/{filename}", "present": os.path.exists(path)}
+    if meta["present"]:
+        meta["last_modified"] = datetime.fromtimestamp(
+            os.path.getmtime(path), tz=timezone.utc
+        ).isoformat()
+    return meta
+
+
+def _pan_india_sources(weather_live: bool) -> list:
+    """Provenance for everything the Pan-India upgrade added. Empty on the NER-only network."""
+    try:
+        from src.services.accessibility_service import network_mode
+
+        if network_mode() != "india":
+            return []
+    except Exception:  # pragma: no cover
+        return []
+
+    return [
+        {
+            "id": "india_network",
+            "name": "Pan-India corridor network",
+            "trust": "sample",
+            "summary": (
+                "A demonstration backbone of real towns and national-highway corridors with "
+                "approximate distances. Not a complete road network."
+            ),
+            "origin": (
+                "india_locations.csv (state and UT capitals, freight hubs) and "
+                "india_road_segments.csv (corridors with highway names where known). Distances "
+                "are approximate planning figures; a test guards that none is shorter than the "
+                "straight line between its towns."
+            ),
+            "storage": _india_file_meta("india_road_segments.csv"),
+            "refresh": "Static.",
+            "feeds": ["The routing graph", "Map", "Planner origin/destination lists"],
+            "upstream": {
+                "name": "OpenStreetMap / NHAI road geometry",
+                "what": "Routable road geometry with real distances",
+                "how": "Replace the corridor CSVs with a graph built from OSM or NHAI data.",
+            },
+            "caveat": "Island territories and roads below the backbone are not covered.",
+        },
+        {
+            "id": "terrain_attributes",
+            "name": "Terrain attributes per corridor",
+            "trust": "sample",
+            "summary": (
+                "Terrain class, road class, ruling gradient, maximum elevation, river and coast "
+                "distance — directionally right approximations, not DEM or hydrography output."
+            ),
+            "origin": "india_road_segments.csv and ner_segment_terrain.csv.",
+            "storage": _india_file_meta("india_road_segments.csv"),
+            "refresh": "Static.",
+            "feeds": [
+                "Which terrain profile (weights, thresholds) scores each corridor",
+                "Hazard gating (no landslide on flat ground, no snow below 1,500 m)",
+                "Travel-time model (gradient, altitude, road class)",
+            ],
+            "upstream": {
+                "name": "SRTM / Cartosat DEM · India-WRIS river network · coastline",
+                "what": "Slope, elevation and distance-to-river/coast sampled along each corridor",
+                "how": "Sample the rasters along the corridor geometry at ingest.",
+            },
+            "caveat": None,
+        },
+        {
+            "id": "derived_susceptibility",
+            "name": "Baseline landslide/flood susceptibility (national corridors)",
+            "trust": "derived",
+            "summary": (
+                "Computed from the terrain attributes by documented formulas, instead of "
+                "hand-typing risk numbers for 146 corridors."
+            ),
+            "origin": (
+                "landslide_susceptibility() and flood_susceptibility() in "
+                "src/data_processing/india_data_provider.py. The Random Forest's historical-event "
+                "features on these corridors are PROXIES derived from the same values."
+            ),
+            "storage": "Computed at load.",
+            "refresh": "With the terrain attributes.",
+            "feeds": ["Flood and landslide baseline", "Disaster model inputs (as proxies)"],
+            "upstream": {
+                "name": "GSI landslide susceptibility maps · CWC / NDMA flood hazard atlases",
+                "what": "Official susceptibility zoning",
+                "how": "Spatial join of the official zoning onto each corridor.",
+            },
+            "caveat": "Inherits the sample trust of the terrain attributes. Not an event record.",
+        },
+        {
+            "id": "hazard_weather",
+            "name": "Temperature, wind, snowfall and visibility",
+            "trust": "live" if weather_live else "synthetic",
+            "summary": (
+                "Live from Open-Meteo alongside rainfall — NOT from IMD." if weather_live else
+                "Illustrative per-terrain snapshot values — the live feed is not answering. "
+                "Not observed weather."
+            ),
+            "origin": (
+                "Open-Meteo hourly temperature_2m, wind_speed_10m, wind_gusts_10m, snowfall and "
+                "visibility, sampled at up to three points along each corridor."
+                if weather_live else
+                "TERRAIN_SNAPSHOT in src/data_processing/india_data_provider.py."
+            ),
+            "storage": "In-memory cache of the last fetch.",
+            "refresh": "With rainfall.",
+            "feeds": ["Heat, cyclone/wind, snow and fog hazards", "Condition slowdowns in travel time"],
+            "upstream": {
+                "name": "India Meteorological Department (IMD)",
+                "what": "Heatwave, cyclone and fog warnings; station observations",
+                "how": "A provider polling IMD warnings, swapped in behind get_segment_conditions().",
+            },
+            "caveat": "Hazard bands follow IMD's published criteria; the data itself is not IMD's.",
+        },
+        {
+            "id": "terrain_profiles",
+            "name": "Terrain profiles — weights and thresholds",
+            "trust": "sample",
+            "summary": (
+                "Expert-set policy: which hazards matter on which terrain, and how much. "
+                "Written down so it can be argued with; not fitted to outcomes."
+            ),
+            "origin": "src/terrain/profiles.py and src/terrain/hazards.py.",
+            "storage": "Source code.",
+            "refresh": "On deploy.",
+            "feeds": ["Every Pan-India accessibility score", "Multi-hazard disruption index"],
+            "upstream": {
+                "name": "Calibration against NDMA / BRO / NHAI disruption records",
+                "what": "Observed closures to tune weights and thresholds against",
+                "how": "Fit the weights on labelled closure history; keep the same structure.",
+            },
+            "caveat": "IMD thresholds are used where they exist; everything else is labelled policy.",
+            "detail_endpoint": "/api/india/terrain-profiles",
+        },
+        {
+            "id": "seasonal_calendar",
+            "name": "Seasonal closures and movement windows",
+            "trust": "sample",
+            "summary": (
+                "Typical winter closure windows for Zojila and the Manali-Leh road, and routine "
+                "night-movement restrictions — historically usual dates, not announcements."
+            ),
+            "origin": "seasonal_closure_months and travel_window columns in the corridor CSVs.",
+            "storage": _india_file_meta("india_road_segments.csv"),
+            "refresh": "Static.",
+            "feeds": ["Seasonal impassability", "Restriction-aware ETA (night halts)"],
+            "upstream": {
+                "name": "BRO and state traffic advisories",
+                "what": "Announced opening/closing dates and convoy timings",
+                "how": "Replace the static window with the announced dates each season.",
+            },
+            "caveat": "Actual dates move every year; confirm with BRO before relying on one.",
+        },
+        {
+            "id": "scenarios",
+            "name": "Simulated disruption scenarios",
+            "trust": "synthetic",
+            "summary": (
+                "Cyclone, heatwave, snowstorm, flood, fog and monsoon events we define, for "
+                "demonstration and controlled testing only."
+            ),
+            "origin": "src/terrain/scenarios.py.",
+            "storage": "Source code.",
+            "refresh": "Applied only when a request names a scenario.",
+            "feeds": ["Any read or plan that passes ?scenario= — labelled simulated throughout"],
+            "upstream": None,
+            "caveat": "Never present scenario output as a live condition.",
+            "detail_endpoint": "/api/india/scenarios",
+        },
+    ]
 
 
 def _file_meta(filename: str) -> dict:
@@ -161,7 +340,8 @@ def _rainfall_source() -> dict:
             "Hand-authored values in ner_segment_features.csv, chosen to be directionally "
             "plausible for each corridor (hill corridors wetter than the Brahmaputra valley). "
             "Used whenever live rainfall is unavailable, so the platform degrades rather than "
-            "fails."
+            "fails. National corridors on the Pan-India network use the illustrative "
+            "per-terrain snapshot in india_data_provider.py instead."
         )
         refresh = "Never — the file changes only when the repository does."
         caveat = (
@@ -360,7 +540,10 @@ def get_data_sources() -> dict:
             ),
             "origin": (
                 "100 - (0.25·weather + 0.30·landslide + 0.20·flood + 0.15·incident + "
-                "0.10·delay), per the SIH Module 1 formula. Deterministic and ML-free by policy."
+                "0.10·delay), per the SIH Module 1 formula, on the NER network. On the "
+                "Pan-India network the same structure with weights taken from the corridor's "
+                "terrain profile (heat, wind, snow and fog added), plus a cap when any hazard "
+                "is extreme. Deterministic and ML-free by policy."
             ),
             "storage": "Computed per request from road_segments and live incident reports.",
             "refresh": "Recomputed whenever a report changes conditions; cached for seconds.",
@@ -392,7 +575,11 @@ def get_data_sources() -> dict:
                 "what": "True routable geometry rather than a 28-node corridor graph",
                 "how": "Replace the graph builder's input; the search is unchanged.",
             },
-            "caveat": "Travel times are estimated from distance and a hill/plains speed assumption.",
+            "caveat": (
+                "Travel times are estimated, not measured: on the Pan-India network from road "
+                "class, gradient, altitude, urban approaches and current conditions; on the NER "
+                "network from a hill/plains speed assumption."
+            ),
         },
         {
             "id": "places",
@@ -413,6 +600,9 @@ def get_data_sources() -> dict:
             ),
         },
     ]
+
+    rainfall_live_now = any(s["id"] == "rainfall" and s["trust"] == "live" for s in sources)
+    sources.extend(_pan_india_sources(rainfall_live_now))
 
     counts = {}
     for source in sources:
@@ -439,7 +629,7 @@ def get_data_sources() -> dict:
             + rainfall_line
             + "Terrain, corridor landslide/flood risk and the model's training data are "
             "sample or synthetic — and nothing here is an official IMD, GSI, CWC or ASDMA "
-            "feed."
+            "feed. Simulated scenarios are always labelled as simulated."
         ),
         "sources": sources,
     }

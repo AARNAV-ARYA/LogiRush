@@ -158,7 +158,7 @@ const AppShell = ({ children }) => {
         className="hidden md:flex flex-col items-center shrink-0 w-[76px] border-r"
         style={{ borderColor: "var(--hairline)", backgroundColor: "var(--surface-sunken)" }}
       >
-        <Link to="/dashboard" className="mt-3 mb-4 shrink-0" aria-label="NER Smart Logistics home">
+        <Link to="/dashboard" className="mt-3 mb-4 shrink-0" aria-label="LogiRush home">
           <img src={logoUrl} alt="" className="w-8 h-8 rounded-md" />
         </Link>
 
@@ -203,7 +203,7 @@ const AppShell = ({ children }) => {
         >
           <img src={logoUrl} alt="" className="w-6 h-6 rounded" />
           <span className="text-sm font-semibold truncate">
-            {TITLES[location.pathname] || "NER Logistics"}
+            {TITLES[location.pathname] || "LogiRush India"}
           </span>
           <div className="ml-auto flex items-center gap-1">
             <SyncStatus />

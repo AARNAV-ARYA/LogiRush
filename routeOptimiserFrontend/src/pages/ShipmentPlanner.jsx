@@ -19,10 +19,137 @@ import {
   Spinner,
 } from "../components/ui";
 import { useApi } from "../hooks/useApi";
-import { riskTextClass } from "../lib/accessibility";
+import {
+  HAZARD_LABELS,
+  TERRAIN_LABELS,
+  closureLabel,
+  riskColor,
+  riskTextClass,
+} from "../lib/accessibility";
 import { formatHours, formatInr, formatKm, formatPercent } from "../lib/format";
 
 const URGENCIES = ["low", "normal", "high", "critical"];
+
+// A fixed, ordered palette for terrain shares (categorical, not a magnitude).
+const TERRAIN_COLORS = {
+  mountain: "#c9d6e3", hill: "#7fa87a", floodplain: "#3987e5", coastal: "#19a0a8",
+  arid: "#d9a441", plains: "#9a8c73", plateau: "#b0764a", forest_remote: "#3f7d4f",
+};
+
+/** Terrain mix, hazard exposure, restriction-aware schedule and the baseline comparison. */
+const TerrainInsight = ({ route, baseline, result }) => {
+  if (!route?.terrain_summary) return null;
+  const schedule = route.schedule;
+  const exposure = (route.hazard_exposure || []).filter((e) => e.peak_risk >= 20).slice(0, 5);
+  return (
+    <Card data-testid="terrain-insight">
+      <SectionHeading hint={`${result.season || ""}${result.travel_date ? ` · departing ${new Date(result.travel_date).toLocaleDateString()}` : ""}`}>
+        Terrain &amp; hazards on this route
+      </SectionHeading>
+
+      <div className="flex h-2.5 rounded-full overflow-hidden" aria-label="Terrain mix">
+        {route.terrain_summary.map((t) => (
+          <div key={t.terrain} title={`${t.label} ${t.share_percent}%`}
+            style={{ width: `${t.share_percent}%`, backgroundColor: TERRAIN_COLORS[t.terrain] || "#6d8299" }} />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+        {route.terrain_summary.map((t) => (
+          <span key={t.terrain} className="flex items-center gap-1.5 text-[11px] text-ink-secondary">
+            <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: TERRAIN_COLORS[t.terrain] || "#6d8299" }} />
+            {TERRAIN_LABELS[t.terrain] || t.label} {Math.round(t.distance_km)} km
+          </span>
+        ))}
+      </div>
+
+      {exposure.length > 0 && (
+        <div className="mt-4">
+          <p className="label-micro mb-1.5">Peak exposure</p>
+          <ul className="space-y-1.5">
+            {exposure.map((e) => (
+              <li key={e.hazard} className="flex items-center gap-2">
+                <span className="text-xs text-ink-secondary w-28 shrink-0">{HAZARD_LABELS[e.hazard] || e.label}</span>
+                <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${e.peak_risk}%`, backgroundColor: riskColor(e.peak_risk) }} />
+                </div>
+                <span className={`text-xs tabular-nums w-8 text-right ${riskTextClass(e.peak_risk)}`}>{Math.round(e.peak_risk)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[10px] text-ink-muted mt-1.5">
+            Worst stretch: {exposure.slice(0, 2).map((e) => `${HAZARD_LABELS[e.hazard]} on ${e.where}`).join("; ")}
+          </p>
+        </div>
+      )}
+
+      {schedule && (
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="rounded-lg px-2 py-1.5" style={{ backgroundColor: "var(--surface-sunken)" }}>
+            <p className="text-[10px] text-ink-muted">Driving</p>
+            <p className="text-sm tabular-nums">{formatHours(schedule.driving_hours)}</p>
+          </div>
+          <div className="rounded-lg px-2 py-1.5" style={{ backgroundColor: "var(--surface-sunken)" }}>
+            <p className="text-[10px] text-ink-muted">Halts</p>
+            <p className="text-sm tabular-nums">{formatHours(schedule.halt_hours)}</p>
+          </div>
+          <div className="rounded-lg px-2 py-1.5" style={{ backgroundColor: "var(--surface-sunken)" }}>
+            <p className="text-[10px] text-ink-muted">Arrives</p>
+            <p className="text-sm tabular-nums">
+              {new Date(schedule.arrival).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+          {schedule.halts.length > 0 && (
+            <ul className="col-span-3 text-[11px] text-ink-muted space-y-0.5 mt-1">
+              {schedule.halts.map((h, i) => (
+                <li key={i}>· {h.reason} ({formatHours(h.hours)})</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {baseline && (
+        <div className="mt-4 pt-3 border-t border-white/10" data-testid="baseline-comparison">
+          <p className="label-micro mb-1">Versus a terrain-blind shortest route</p>
+          {baseline.same_as_recommended ? (
+            <p className="text-xs text-ink-secondary">
+              The shortest route is also the recommended one — conditions give no reason to detour.
+            </p>
+          ) : (
+            <p className="text-xs text-ink-secondary leading-relaxed">
+              Shortest route: {baseline.baseline.path_names.join(" → ")} ({formatKm(baseline.baseline.total_distance_km)},
+              peak risk {Math.round(baseline.baseline.peak_segment_risk_percent)}). The recommendation
+              {baseline.difference.extra_distance_km >= 0 ? " adds " : " saves "}
+              {formatKm(Math.abs(baseline.difference.extra_distance_km))} and
+              {baseline.difference.peak_risk_reduction >= 0 ? " lowers" : " raises"} peak risk by{" "}
+              {Math.abs(Math.round(baseline.difference.peak_risk_reduction))} points
+              {baseline.difference.worst_accessibility_gain > 0
+                ? `, lifting the weakest link by ${Math.round(baseline.difference.worst_accessibility_gain)}.`
+                : "."}
+            </p>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+};
+
+/** Corridors closed under the conditions this plan was computed for, by kind of closure. */
+const ClosureNotice = ({ closures }) => {
+  const entries = Object.entries(closures || {});
+  if (!entries.length) return null;
+  return (
+    <div className="text-xs text-ink-secondary space-y-1" data-testid="closure-notice">
+      {entries.map(([type, list]) => (
+        <p key={type}>
+          <span style={{ color: "var(--status-critical)" }}>{closureLabel(type)}:</span>{" "}
+          {list.slice(0, 6).map((c) => c.label).join(", ")}
+          {list.length > 6 ? ` +${list.length - 6} more` : ""}
+        </p>
+      ))}
+    </div>
+  );
+};
 
 /** Visualises how the cargo profile weights the five objectives. */
 const WeightBars = ({ weights }) => {
@@ -92,9 +219,13 @@ const RouteCard = ({ route, primary, onHover, isActive }) => (
       </div>
       <div className="text-right shrink-0">
         <p className="text-2xl font-bold text-accent tabular-nums">
-          {formatHours(route.eta_hours)}
+          {formatHours(route.schedule?.elapsed_hours ?? route.eta_hours)}
         </p>
-        <p className="text-xs text-ink-muted">estimated transit</p>
+        <p className="text-xs text-ink-muted">
+          {route.schedule?.halt_hours > 0
+            ? `incl. ${formatHours(route.schedule.halt_hours)} of halts`
+            : "estimated transit"}
+        </p>
       </div>
     </div>
 
@@ -144,7 +275,8 @@ const ShipmentPlanner = () => {
   const navigate = useNavigate();
   const locationsQuery = useApi(() => api.getLocations());
   const cargoQuery = useApi(() => api.getCargoTypes());
-  const segmentsQuery = useApi(() => api.getSegments());
+  const scenariosQuery = useApi(() => api.getScenarios().catch(() => ({ scenarios: [] })));
+  const scenarios = scenariosQuery.data?.scenarios || [];
 
   const [form, setForm] = useState({
     origin: "",
@@ -152,7 +284,17 @@ const ShipmentPlanner = () => {
     cargo_type: "general",
     urgency: "normal",
     weight_kg: "1000",
+    // Pan-India: departure date decides seasonal closures and the night-halt schedule;
+    // scenario is an optional SIMULATED disruption.
+    travel_date: "",
+    scenario: "",
   });
+  const planMonth = form.travel_date ? String(Number(form.travel_date.slice(5, 7))) : "";
+  // The context map shows the network under the same conditions the plan uses.
+  const segmentsQuery = useApi(
+    () => api.getSegments({ scenario: form.scenario, month: planMonth }),
+    { deps: [form.scenario, planMonth] }
+  );
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [planning, setPlanning] = useState(false);
@@ -222,6 +364,8 @@ const ShipmentPlanner = () => {
         // Weight is not optional any more: it sizes the fleet and prices every option, so an
         // empty box would silently fall back to a default and mislead the operator.
         weight_kg: Number(form.weight_kg) || 1000,
+        ...(form.travel_date ? { travel_date: form.travel_date } : {}),
+        ...(form.scenario ? { scenario: form.scenario } : {}),
       });
       setResult(plan);
       setHovered(plan.recommended_route);
@@ -256,6 +400,8 @@ const ShipmentPlanner = () => {
         cargo_type: form.cargo_type,
         urgency: form.urgency,
         weight_kg: Number(form.weight_kg) || 1000,
+        // Shipments are real, so a scenario is never saved with one — only the date.
+        ...(form.travel_date ? { travel_date: form.travel_date } : {}),
       });
       setSaved(created.shipment);
     } catch (e) {
@@ -279,7 +425,7 @@ const ShipmentPlanner = () => {
       <header className="mb-5">
         <h1>Shipment Planner</h1>
         <p className="text-ink-secondary mt-1 text-sm">
-          Risk-aware routing across the North Eastern Region
+          Terrain-aware, multi-hazard routing across India
         </p>
       </header>
 
@@ -357,6 +503,37 @@ const ShipmentPlanner = () => {
           </label>
         </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-4">
+          <label>
+            <span className="field-label">Departure date</span>
+            <input
+              id="travel-date"
+              type="date"
+              className="field"
+              value={form.travel_date}
+              onChange={(e) => setForm({ ...form, travel_date: e.target.value })}
+              aria-describedby="travel-date-hint"
+            />
+            <span id="travel-date-hint" className="sr-only">
+              Optional. Decides seasonal pass closures and night-restriction halts; blank means now.
+            </span>
+          </label>
+          <label className="lg:col-span-2">
+            <span className="field-label">Simulate a disruption (optional)</span>
+            <select
+              id="scenario"
+              className="field"
+              value={form.scenario}
+              onChange={(e) => setForm({ ...form, scenario: e.target.value })}
+            >
+              <option value="">None — live conditions</option>
+              {scenarios.map((sc) => (
+                <option key={sc.id} value={sc.id}>{sc.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className="flex items-center gap-2 mt-3 flex-wrap">
           <span className="text-xs text-ink-muted">Typical consignments:</span>
           {[
@@ -401,16 +578,37 @@ const ShipmentPlanner = () => {
         </div>
       )}
 
+      {result?.simulated && (
+        <Card className="mb-4 state-warning" data-testid="plan-simulation-banner">
+          <p style={{ color: "var(--status-warning)" }} className="font-semibold text-sm">
+            SIMULATION — {result.scenario?.label}
+          </p>
+          <p className="text-xs state-warning-dim mt-1">
+            {result.scenario?.description} These are simulated conditions for planning practice,
+            not live observations.
+          </p>
+        </Card>
+      )}
+
       {result && result.routes?.length === 0 && (
-        <Card className="state-warning">
-          <p style={{ color: 'var(--status-warning)' }} className="font-medium">No route available</p>
+        <Card className="state-warning mb-4">
+          <p style={{ color: 'var(--status-warning)' }} className="font-medium">No open road route</p>
           <p className="text-sm state-warning-dim mt-1">{result.message}</p>
-          {result.impassable_segments?.length ? (
+          {result.closures ? (
+            <div className="mt-2"><ClosureNotice closures={result.closures} /></div>
+          ) : result.impassable_segments?.length ? (
             <p className="text-xs mt-2" style={{ color: 'rgba(250, 178, 25, 0.7)' }}>
               Impassable corridors excluded: {result.impassable_segments.join(", ")}
             </p>
           ) : null}
         </Card>
+      )}
+
+      {/* Roads shut is exactly when rail or an airlift matters — show them anyway. */}
+      {result && result.routes?.length === 0 && result.transport_options?.some((o) => o.feasible) && (
+        <div className="mb-6">
+          <TransportOptions result={result} selectedMode={selectedMode} onSelectMode={setSelectedMode} />
+        </div>
       )}
 
       {/* Before anything is planned the screen used to be a blank half-page. Showing the
@@ -430,10 +628,11 @@ const ShipmentPlanner = () => {
           <Card className="xl:col-span-2 flex flex-col justify-center">
             <h2 className="text-base font-semibold text-ink">Plan a consignment</h2>
             <p className="text-sm text-ink-secondary mt-2 leading-relaxed">
-              Choose an origin and destination above, say what the load weighs, and the
-              planner compares every way of moving it — road vehicle classes, rail, the
-              Brahmaputra waterway, airlift and porters — over the corridors each one can
-              actually use.
+              Choose an origin and destination anywhere on the national network, say what the
+              load weighs, and the planner compares every way of moving it — road vehicle
+              classes, rail, the Ganga and Brahmaputra waterways, airlift and porters — over the
+              corridors each one can actually use, scoring each corridor for the hazards of
+              its own terrain.
             </p>
             <ul className="mt-4 space-y-2 text-sm text-ink-secondary">
               <li className="flex gap-2">
@@ -449,6 +648,11 @@ const ShipmentPlanner = () => {
               <li className="flex gap-2">
                 <span className="text-ink-muted" aria-hidden="true">·</span>
                 Cargo type and urgency reweight the trade-off between cost, time and risk.
+              </li>
+              <li className="flex gap-2">
+                <span className="text-ink-muted" aria-hidden="true">·</span>
+                A departure date applies seasonal pass closures and night-movement halts; a
+                simulated scenario shows how the plan changes under a cyclone, flood or fog.
               </li>
             </ul>
           </Card>
@@ -511,6 +715,19 @@ const ShipmentPlanner = () => {
           </div>
 
           <div className="xl:col-span-2 space-y-4">
+            <TerrainInsight
+              route={activeRoute?.terrain_summary ? activeRoute : result.recommended_route}
+              baseline={result.baseline_comparison}
+              result={result}
+            />
+            {result.closures && Object.keys(result.closures).length > 0 && (
+              <Card>
+                <SectionHeading hint="Excluded from routing under these conditions">
+                  Closed corridors
+                </SectionHeading>
+                <ClosureNotice closures={result.closures} />
+              </Card>
+            )}
             <Card className="!p-3">
               <RouteMap
                 segments={segmentsQuery.data?.segments || []}

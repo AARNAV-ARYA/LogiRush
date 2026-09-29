@@ -45,6 +45,13 @@ class NERGraphBuilder:
         return round(min(100.0, max(0.0, (value / reference) * 100.0)), 2)
 
     @staticmethod
+    def _normalise_additive(value: float, reference: float) -> float:
+        """Like _normalise but without the 100 ceiling, for additive objectives on the
+        Pan-India network. A 20-hour Himalayan leg is not "the same" as a 12-hour one; capping
+        it would let the router treat Keylong-Leh as no slower than Delhi-Jaipur-and-back."""
+        return round(max(0.0, (value / reference) * 100.0), 2)
+
+    @staticmethod
     def _reliability_penalty(segment: dict) -> float:
         """0-100 penalty capturing how much this road can be *depended on*.
 
@@ -62,7 +69,10 @@ class NERGraphBuilder:
 
         delay_component = segment["risk_inputs"]["delay_risk"] * 0.5
         incident_component = min(40.0, segment["active_incident_count"] * 12.0)
-        return round(min(100.0, status_penalty + delay_component + incident_component), 2)
+        # Terrain's own dependability penalty (sparse alternates, long service gaps) on the
+        # Pan-India network; absent -> 0 on the original NER network.
+        terrain_component = float(segment.get("reliability_extra") or 0.0)
+        return round(min(100.0, status_penalty + delay_component + incident_component + terrain_component), 2)
 
     def build(self, assessed_segments: list | None = None) -> nx.MultiDiGraph:
         if assessed_segments is None:
@@ -89,10 +99,16 @@ class NERGraphBuilder:
 
             travel_time = seg["travel_time_hours"]
             monetary_cost = seg["distance_km"] * FREIGHT_RATE_INR_PER_KM
-            disruption_pct = (
-                seg["prediction"]["combined_disruption_probability"] * 100.0
-                if seg.get("prediction") else 0.0
-            )
+            terrain_aware = "hazards" in seg
+            if terrain_aware:
+                # Pan-India: the multi-hazard index for the corridor's own terrain.
+                disruption_pct = float(seg["multi_hazard_index"])
+            else:
+                disruption_pct = (
+                    seg["prediction"]["combined_disruption_probability"] * 100.0
+                    if seg.get("prediction") else 0.0
+                )
+            normalise_time = self._normalise_additive if terrain_aware else self._normalise
 
             attrs = {
                 "segment_id": seg["id"],
@@ -104,12 +120,30 @@ class NERGraphBuilder:
                 "monetary_cost_inr": round(monetary_cost, 2),
                 "accessibility_score": seg["accessibility_score"],
                 # --- normalised objective costs, all 0-100, lower is better ---
-                "obj_time": self._normalise(travel_time, TIME_REFERENCE_HOURS),
-                "obj_cost": self._normalise(monetary_cost, COST_REFERENCE_INR),
+                "obj_time": normalise_time(travel_time, TIME_REFERENCE_HOURS),
+                "obj_cost": normalise_time(monetary_cost, COST_REFERENCE_INR),
                 "obj_accessibility": round(100.0 - seg["accessibility_score"], 2),
                 "obj_risk": round(disruption_pct, 2),
                 "obj_reliability": self._reliability_penalty(seg),
             }
+            if terrain_aware:
+                terrain = seg.get("terrain") or {}
+                attrs.update({
+                    "terrain_class": terrain.get("class"),
+                    "secondary_terrain": terrain.get("secondary"),
+                    "road_class": terrain.get("road_class"),
+                    "travel_window": terrain.get("travel_window"),
+                    "max_elevation_m": terrain.get("max_elevation_m"),
+                    "source_name": seg.get("source_name"),
+                    "destination_name": seg.get("destination_name"),
+                    # Per-hazard risks and relevance let the router recompute the risk
+                    # objective with a cargo's own sensitivities (perishables and heat).
+                    "hazard_risks": {h: v["risk"] for h, v in seg["hazards"].items() if v["risk"] is not None},
+                    "hazard_relevance": dict(seg.get("hazard_relevance") or {}),
+                    "dominant_hazard": seg.get("dominant_hazard"),
+                    "simulated": seg.get("simulated", False),
+                    "condition_slowdowns": seg.get("condition_slowdowns") or [],
+                })
 
             # Roads are bidirectional; add both directions with identical attributes.
             G.add_edge(seg["source"], seg["destination"], **attrs)

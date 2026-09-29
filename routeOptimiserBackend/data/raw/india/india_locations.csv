@@ -1,0 +1,111 @@
+# SAMPLE DATA — Pan-India backbone nodes for the LogiRush demonstration network.
+# Town names, states and coordinates are real public-knowledge values (city centres, rounded).
+# elevation_m is an approximate town elevation. Infrastructure flags mark facilities relevant
+# to freight planning (1 = present) and are curated from general knowledge — verify against
+# Indian Railways / AAI / IWAI / Ministry of Ports records before any operational use.
+#   railhead        broad-gauge station handling freight or parcel traffic
+#   airport         airport or established helipad usable for relief airlift
+#   river_terminal  National Waterway terminal; river_system names the waterway (NW1 Ganga, NW2 Brahmaputra)
+#   seaport         major or significant cargo port (not modelled as a routing mode yet)
+#   urban_class     metro | city | town — drives the urban-approach congestion allowance
+# The 27 North Eastern nodes (LOC001-LOC027) remain in data/raw/ner/ner_locations.csv, unchanged.
+id,name,state,latitude,longitude,district,region,elevation_m,railhead,airport,river_terminal,river_system,seaport,urban_class
+LOC028,Delhi,Delhi,28.6139,77.2090,New Delhi,North,216,1,1,0,,0,metro
+LOC029,Jaipur,Rajasthan,26.9124,75.7873,Jaipur,North,431,1,1,0,,0,city
+LOC030,Agra,Uttar Pradesh,27.1767,78.0081,Agra,North,170,1,1,0,,0,city
+LOC031,Lucknow,Uttar Pradesh,26.8467,80.9462,Lucknow,North,123,1,1,0,,0,city
+LOC032,Kanpur,Uttar Pradesh,26.4499,80.3319,Kanpur Nagar,North,126,1,1,0,,0,city
+LOC033,Prayagraj,Uttar Pradesh,25.4358,81.8463,Prayagraj,North,98,1,1,1,NW1,0,city
+LOC034,Varanasi,Uttar Pradesh,25.3176,82.9739,Varanasi,North,81,1,1,1,NW1,0,city
+LOC035,Gorakhpur,Uttar Pradesh,26.7606,83.3732,Gorakhpur,North,84,1,1,0,,0,city
+LOC036,Bareilly,Uttar Pradesh,28.3670,79.4304,Bareilly,North,268,1,1,0,,0,city
+LOC037,Jhansi,Uttar Pradesh,25.4484,78.5685,Jhansi,Central,285,1,0,0,,0,town
+LOC038,Chandigarh,Chandigarh,30.7333,76.7794,Chandigarh,North,321,1,1,0,,0,city
+LOC039,Ludhiana,Punjab,30.9010,75.8573,Ludhiana,North,244,1,0,0,,0,city
+LOC040,Amritsar,Punjab,31.6340,74.8723,Amritsar,North,234,1,1,0,,0,city
+LOC041,Jammu,Jammu and Kashmir,32.7266,74.8570,Jammu,Himalaya,327,1,1,0,,0,city
+LOC042,Srinagar,Jammu and Kashmir,34.0837,74.7973,Srinagar,Himalaya,1585,0,1,0,,0,city
+LOC043,Sonamarg,Jammu and Kashmir,34.3032,75.2915,Ganderbal,Himalaya,2740,0,0,0,,0,town
+LOC044,Kargil,Ladakh,34.5539,76.1349,Kargil,Himalaya,2676,0,1,0,,0,town
+LOC045,Leh,Ladakh,34.1526,77.5771,Leh,Himalaya,3500,0,1,0,,0,town
+LOC046,Manali,Himachal Pradesh,32.2432,77.1892,Kullu,Himalaya,2050,0,0,0,,0,town
+LOC047,Keylong,Himachal Pradesh,32.5714,77.0325,Lahaul and Spiti,Himalaya,3080,0,0,0,,0,town
+LOC048,Shimla,Himachal Pradesh,31.1048,77.1734,Shimla,Himalaya,2205,0,1,0,,0,town
+LOC049,Dehradun,Uttarakhand,30.3165,78.0322,Dehradun,Himalaya,640,1,1,0,,0,city
+LOC050,Rishikesh,Uttarakhand,30.0869,78.2676,Dehradun,Himalaya,372,1,0,0,,0,town
+LOC051,Joshimath,Uttarakhand,30.5550,79.5643,Chamoli,Himalaya,1875,0,0,0,,0,town
+LOC052,Jodhpur,Rajasthan,26.2389,73.0243,Jodhpur,West,231,1,1,0,,0,city
+LOC053,Bikaner,Rajasthan,28.0229,73.3119,Bikaner,West,242,1,1,0,,0,town
+LOC054,Jaisalmer,Rajasthan,26.9157,70.9083,Jaisalmer,West,225,1,1,0,,0,town
+LOC055,Barmer,Rajasthan,25.7532,71.3967,Barmer,West,227,1,0,0,,0,town
+LOC056,Udaipur (Rajasthan),Rajasthan,24.5854,73.7125,Udaipur,West,598,1,1,0,,0,city
+LOC057,Ajmer,Rajasthan,26.4499,74.6399,Ajmer,North,480,1,0,0,,0,town
+LOC058,Kota,Rajasthan,25.2138,75.8648,Kota,Central,271,1,0,0,,0,city
+LOC059,Ahmedabad,Gujarat,23.0225,72.5714,Ahmedabad,West,53,1,1,0,,0,metro
+LOC060,Bhuj,Gujarat,23.2420,69.6669,Kutch,West,110,1,1,0,,0,town
+LOC061,Gandhidham (Kandla),Gujarat,23.0753,70.1337,Kutch,West,15,1,0,0,,1,town
+LOC062,Rajkot,Gujarat,22.3039,70.8022,Rajkot,West,128,1,1,0,,0,city
+LOC063,Vadodara,Gujarat,22.3072,73.1812,Vadodara,West,39,1,1,0,,0,city
+LOC064,Surat,Gujarat,21.1702,72.8311,Surat,West,13,1,1,0,,1,city
+LOC065,Mumbai,Maharashtra,19.0760,72.8777,Mumbai,West,14,1,1,0,,1,metro
+LOC066,Pune,Maharashtra,18.5204,73.8567,Pune,West,560,1,1,0,,0,metro
+LOC067,Nashik,Maharashtra,19.9975,73.7898,Nashik,West,700,1,1,0,,0,city
+LOC068,Dhule,Maharashtra,20.9042,74.7749,Dhule,West,250,1,0,0,,0,town
+LOC069,Chhatrapati Sambhajinagar (Aurangabad),Maharashtra,19.8762,75.3433,Chhatrapati Sambhajinagar,West,568,1,1,0,,0,city
+LOC070,Nagpur,Maharashtra,21.1458,79.0882,Nagpur,Central,310,1,1,0,,0,city
+LOC071,Solapur,Maharashtra,17.6599,75.9064,Solapur,West,457,1,0,0,,0,city
+LOC072,Ratnagiri,Maharashtra,16.9902,73.3120,Ratnagiri,West,11,1,0,0,,0,town
+LOC073,Kolhapur,Maharashtra,16.7050,74.2433,Kolhapur,West,569,1,1,0,,0,city
+LOC074,Panaji,Goa,15.4909,73.8278,North Goa,West,7,1,1,0,,1,town
+LOC075,Karwar,Karnataka,14.8136,74.1297,Uttara Kannada,South,5,1,0,0,,0,town
+LOC076,Bhopal,Madhya Pradesh,23.2599,77.4126,Bhopal,Central,527,1,1,0,,0,city
+LOC077,Indore,Madhya Pradesh,22.7196,75.8577,Indore,Central,553,1,1,0,,0,city
+LOC078,Jabalpur,Madhya Pradesh,23.1815,79.9864,Jabalpur,Central,412,1,1,0,,0,city
+LOC079,Gwalior,Madhya Pradesh,26.2183,78.1828,Gwalior,Central,197,1,1,0,,0,city
+LOC080,Raipur,Chhattisgarh,21.2514,81.6296,Raipur,Central,298,1,1,0,,0,city
+LOC081,Jagdalpur,Chhattisgarh,19.0748,82.0080,Bastar,Central,552,1,1,0,,0,town
+LOC082,Koraput,Odisha,18.8135,82.7123,Koraput,East,870,1,0,0,,0,town
+LOC083,Sambalpur,Odisha,21.4669,83.9812,Sambalpur,East,150,1,0,0,,0,town
+LOC084,Ranchi,Jharkhand,23.3441,85.3096,Ranchi,East,651,1,1,0,,0,city
+LOC085,Jamshedpur,Jharkhand,22.8046,86.2029,East Singhbhum,East,135,1,0,0,,0,city
+LOC086,Dhanbad,Jharkhand,23.7957,86.4304,Dhanbad,East,222,1,0,0,,0,city
+LOC087,Asansol,West Bengal,23.6739,86.9524,Paschim Bardhaman,East,112,1,0,0,,0,city
+LOC088,Gaya,Bihar,24.7914,85.0002,Gaya,East,111,1,1,0,,0,town
+LOC089,Patna,Bihar,25.5941,85.1376,Patna,East,53,1,1,1,NW1,0,city
+LOC090,Muzaffarpur,Bihar,26.1209,85.3647,Muzaffarpur,East,60,1,0,0,,0,town
+LOC091,Darbhanga,Bihar,26.1542,85.8918,Darbhanga,East,49,1,1,0,,0,town
+LOC092,Purnia,Bihar,25.7771,87.4753,Purnia,East,36,1,0,0,,0,town
+LOC093,Bhagalpur,Bihar,25.2425,86.9842,Bhagalpur,East,52,1,0,1,NW1,0,town
+LOC094,Malda,West Bengal,25.0108,88.1411,Malda,East,17,1,0,0,,0,town
+LOC095,Kolkata,West Bengal,22.5726,88.3639,Kolkata,East,9,1,1,1,NW1,1,metro
+LOC096,Kharagpur,West Bengal,22.3460,87.2320,Paschim Medinipur,East,29,1,0,0,,0,town
+LOC097,Balasore,Odisha,21.4934,86.9135,Balasore,East,19,1,0,0,,0,town
+LOC098,Bhubaneswar,Odisha,20.2961,85.8245,Khordha,East,45,1,1,0,,0,city
+LOC099,Puri,Odisha,19.8135,85.8312,Puri,East,5,1,0,0,,0,town
+LOC100,Paradip,Odisha,20.3165,86.6114,Jagatsinghpur,East,5,1,0,0,,1,town
+LOC101,Berhampur,Odisha,19.3150,84.7941,Ganjam,East,24,1,0,0,,0,town
+LOC102,Visakhapatnam,Andhra Pradesh,17.6868,83.2185,Visakhapatnam,South,45,1,1,0,,1,city
+LOC103,Rajahmundry,Andhra Pradesh,17.0005,81.8040,East Godavari,South,14,1,1,0,,0,town
+LOC104,Vijayawada,Andhra Pradesh,16.5062,80.6480,NTR,South,23,1,1,0,,0,city
+LOC105,Nellore,Andhra Pradesh,14.4426,79.9865,Nellore,South,18,1,0,0,,0,town
+LOC106,Chennai,Tamil Nadu,13.0827,80.2707,Chennai,South,6,1,1,0,,1,metro
+LOC107,Hyderabad,Telangana,17.3850,78.4867,Hyderabad,South,505,1,1,0,,0,metro
+LOC108,Adilabad,Telangana,19.6641,78.5320,Adilabad,South,264,1,0,0,,0,town
+LOC109,Kurnool,Andhra Pradesh,15.8281,78.0373,Kurnool,South,281,1,1,0,,0,town
+LOC110,Anantapur,Andhra Pradesh,14.6819,77.6006,Anantapur,South,335,1,0,0,,0,town
+LOC111,Bengaluru,Karnataka,12.9716,77.5946,Bengaluru Urban,South,920,1,1,0,,0,metro
+LOC112,Vellore,Tamil Nadu,12.9165,79.1325,Vellore,South,216,1,0,0,,0,town
+LOC113,Mysuru,Karnataka,12.2958,76.6394,Mysuru,South,763,1,1,0,,0,city
+LOC114,Ooty,Tamil Nadu,11.4102,76.6950,The Nilgiris,South,2240,0,0,0,,0,town
+LOC115,Mangaluru,Karnataka,12.9141,74.8560,Dakshina Kannada,South,22,1,1,0,,1,city
+LOC116,Hubballi,Karnataka,15.3647,75.1240,Dharwad,South,671,1,1,0,,0,city
+LOC117,Belagavi,Karnataka,15.8497,74.4977,Belagavi,South,751,1,1,0,,0,city
+LOC118,Kochi,Kerala,9.9312,76.2673,Ernakulam,South,3,1,1,0,,1,city
+LOC119,Thiruvananthapuram,Kerala,8.5241,76.9366,Thiruvananthapuram,South,10,1,1,0,,0,city
+LOC120,Kozhikode,Kerala,11.2588,75.7804,Kozhikode,South,5,1,1,0,,0,city
+LOC121,Coimbatore,Tamil Nadu,11.0168,76.9558,Coimbatore,South,411,1,1,0,,0,city
+LOC122,Madurai,Tamil Nadu,9.9252,78.1198,Madurai,South,134,1,1,0,,0,city
+LOC123,Tiruchirappalli,Tamil Nadu,10.7905,78.7047,Tiruchirappalli,South,88,1,1,0,,0,city
+LOC124,Salem,Tamil Nadu,11.6643,78.1460,Salem,South,278,1,0,0,,0,city
+LOC125,Puducherry,Puducherry,11.9416,79.8083,Puducherry,South,3,0,0,0,,0,town
+LOC126,Tawang,Arunachal Pradesh,27.5860,91.8594,Tawang,North East,3048,0,1,0,,0,town

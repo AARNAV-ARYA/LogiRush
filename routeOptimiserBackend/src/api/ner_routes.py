@@ -25,6 +25,14 @@ Endpoints
     POST /api/ner/incidents                  report an incident (idempotent)
     POST /api/ner/incidents/sync             bulk offline sync (idempotent, per-item results)
     POST /api/ner/incidents/<id>/verify      deterministic human verification
+
+Pan-India additions (the same blueprint is also mounted at /api/india/*):
+    GET  /api/india/network                  network coverage: regions, terrains, road classes
+    GET  /api/india/terrain-profiles         per-terrain weights, relevance and thresholds
+    GET  /api/india/scenarios                SIMULATED disruption scenarios available
+    Condition-aware reads (/segments, /dashboard, /analytics, /accessibility-summary,
+    /road-segments/<id>) accept ?scenario=<id> and ?month=<1-12 | YYYY-MM-DD>.
+    POST /plan-route accepts "scenario" and "travel_date" in its body.
 """
 
 import logging
@@ -55,8 +63,35 @@ def _invalidate_cache():
     routing_service.invalidate()
 
 
-def _get_assessed(force: bool = False):
-    return routing_service.get_assessed(force=force)
+def _condition_args() -> dict:
+    """?scenario= and ?month= from the query string (Pan-India). Empty means live/today."""
+    return {
+        "scenario": (request.args.get("scenario") or "").strip() or None,
+        "month": (request.args.get("month") or "").strip() or None,
+    }
+
+
+def _get_assessed(force: bool = False, scenario=None, month=None):
+    return routing_service.get_assessed(force=force, scenario=scenario, month=month)
+
+
+def _get_assessed_for_request():
+    """Assessment under the conditions this request asked for. Raises ValueError on bad args."""
+    return _get_assessed(**_condition_args())
+
+
+def _network_meta(assessed=None) -> dict:
+    """What every Pan-India read should say about itself: network, simulation, weather source."""
+    if not routing_service.accessibility.terrain_aware:
+        return {"network": "ner"}
+    args = _condition_args()
+    simulated = bool(assessed) and any(s.get("simulated") for s in assessed)
+    return {
+        "network": "india",
+        "scenario": args["scenario"],
+        "simulated": simulated or bool(args["scenario"]),
+        "conditions": _provider.conditions_status(),
+    }
 
 
 def _error(message, status=400):
@@ -83,7 +118,9 @@ def health():
 
         return jsonify({
             "status": "success",
-            "service": "ner-logistics-intelligence",
+            "service": "logirush-india-logistics-intelligence"
+                       if routing_service.accessibility.terrain_aware else "ner-logistics-intelligence",
+            "network": "india" if routing_service.accessibility.terrain_aware else "ner",
             "data_source": "mock",
             "locations": len(locations),
             "road_segments": len(segments),
@@ -111,6 +148,14 @@ def list_locations():
                     "latitude": loc.latitude,
                     "longitude": loc.longitude,
                     "district": loc.district,
+                    "region": getattr(loc, "region", None),
+                    "urban_class": getattr(loc, "urban_class", None),
+                    "infrastructure": {
+                        "railhead": getattr(loc, "railhead", False),
+                        "airport": getattr(loc, "airport", False),
+                        "river_terminal": getattr(loc, "river_terminal", False),
+                        "seaport": getattr(loc, "seaport", False),
+                    },
                 }
                 for loc in locations
             ],
@@ -170,13 +215,16 @@ def list_road_segments():
 def list_assessed_segments():
     """Full picture: baseline data + ML prediction + live incidents + traversability."""
     try:
-        assessed = _get_assessed()
+        assessed = _get_assessed_for_request()
         return jsonify({
             "status": "success",
             "data_source": "mock",
+            **_network_meta(assessed),
             "count": len(assessed),
             "segments": assessed,
         }), 200
+    except ValueError as e:
+        return _error(str(e))
     except Exception as e:
         logger.error(f"Error assessing NER segments: {e}")
         return _error(str(e), 500)
@@ -185,10 +233,12 @@ def list_assessed_segments():
 @ner_bp.route("/road-segments/<segment_id>", methods=["GET"])
 def get_road_segment(segment_id):
     try:
-        match = next((s for s in _get_assessed() if s["id"] == segment_id), None)
+        match = next((s for s in _get_assessed_for_request() if s["id"] == segment_id), None)
         if match is None:
             return _error(f"Segment {segment_id} not found", 404)
         return jsonify({"status": "success", "data_source": "mock", "segment": match}), 200
+    except ValueError as e:
+        return _error(str(e))
     except Exception as e:
         logger.error(f"Error fetching NER road segment {segment_id}: {e}")
         return _error(str(e), 500)
@@ -197,7 +247,7 @@ def get_road_segment(segment_id):
 @ner_bp.route("/accessibility-summary", methods=["GET"])
 def accessibility_summary():
     try:
-        assessed = _get_assessed()
+        assessed = _get_assessed_for_request()
         if not assessed:
             return jsonify({"status": "success", "total_segments": 0}), 200
 
@@ -222,7 +272,10 @@ def accessibility_summary():
             "high_risk_corridors": sorted(assessed, key=lambda d: d["accessibility_score"])[:5],
             "impassable_segments": [s for s in assessed if s["impassable"]],
             "total_segments": len(assessed),
+            **_network_meta(assessed),
         }), 200
+    except ValueError as e:
+        return _error(str(e))
     except Exception as e:
         logger.error(f"Error computing accessibility summary: {e}")
         return _error(str(e), 500)
@@ -232,7 +285,7 @@ def accessibility_summary():
 def dashboard():
     """Single call powering the dashboard, so the UI doesn't fan out to five endpoints."""
     try:
-        assessed = _get_assessed()
+        assessed = _get_assessed_for_request()
         incidents = _recent_incident_dicts(limit=10)
 
         avg_access = round(sum(s["accessibility_score"] for s in assessed) / len(assessed), 2) if assessed else None
@@ -260,7 +313,11 @@ def dashboard():
             "active_incident_count": len(distinct_incident_ids),
             "high_risk_corridors": sorted(assessed, key=lambda d: d["accessibility_score"])[:5],
             "recent_incidents": incidents,
+            **_network_meta(assessed),
+            **_india_dashboard_extras(assessed),
         }), 200
+    except ValueError as e:
+        return _error(str(e))
     except Exception as e:
         logger.error(f"Error building dashboard: {e}")
         return _error(str(e), 500)
@@ -310,6 +367,8 @@ def plan_route():
                 max_routes=max_routes,
                 max_hours=max_hours,
                 weight_kg=data.get("weight_kg", DEFAULT_WEIGHT_KG),
+                scenario=data.get("scenario"),
+                travel_date=data.get("travel_date"),
             )
         except LookupError as e:
             return _error(str(e), 404)
@@ -326,7 +385,7 @@ def plan_route():
 def analytics():
     """Aggregates for the dashboard charts — computed server-side so every client agrees."""
     try:
-        assessed = _get_assessed()
+        assessed = _get_assessed_for_request()
         if not assessed:
             return jsonify({"status": "success", "total_segments": 0}), 200
 
@@ -385,10 +444,178 @@ def analytics():
             "accessibility_distribution": distribution,
             "state_breakdown": states,
             "risk_scatter": scatter,
+            **_network_meta(assessed),
+            **_india_analytics_extras(assessed),
         }), 200
+    except ValueError as e:
+        return _error(str(e))
     except Exception as e:
         logger.error(f"Error computing analytics: {e}")
         return _error(str(e), 500)
+
+
+def _india_dashboard_extras(assessed) -> dict:
+    """Closures by type and the hazards currently dominating the network (Pan-India only)."""
+    if not assessed or "hazards" not in assessed[0]:
+        return {}
+    closures = {}
+    for s in assessed:
+        if s.get("closure"):
+            closures[s["closure"]["type"]] = closures.get(s["closure"]["type"], 0) + 1
+    dominant = {}
+    for s in assessed:
+        if s.get("dominant_hazard"):
+            dominant[s["dominant_hazard"]] = dominant.get(s["dominant_hazard"], 0) + 1
+    return {
+        "closures_by_type": closures,
+        "dominant_hazards": dominant,
+        "average_multi_hazard_index": round(
+            sum(s["multi_hazard_index"] for s in assessed) / len(assessed), 2),
+    }
+
+
+def _india_analytics_extras(assessed) -> dict:
+    """Per-terrain and per-region aggregates for the analytics charts (Pan-India only)."""
+    if not assessed or "terrain" not in assessed[0]:
+        return {}
+    from src.terrain.profiles import HAZARDS, PROFILES
+
+    def aggregate(key_of):
+        groups = {}
+        for s in assessed:
+            key = key_of(s)
+            g = groups.setdefault(key, {"scores": [], "index": [], "km": 0.0, "impassable": 0})
+            g["scores"].append(s["accessibility_score"])
+            g["index"].append(s["multi_hazard_index"])
+            g["km"] += s["distance_km"]
+            g["impassable"] += 1 if s["impassable"] else 0
+        return [
+            {"key": k, "segment_count": len(g["scores"]), "network_km": round(g["km"], 1),
+             "average_accessibility": round(sum(g["scores"]) / len(g["scores"]), 2),
+             "average_multi_hazard_index": round(sum(g["index"]) / len(g["index"]), 2),
+             "impassable_count": g["impassable"]}
+            for k, g in groups.items()
+        ]
+
+    terrain = aggregate(lambda s: s["terrain"]["class"])
+    for row in terrain:
+        row["label"] = PROFILES[row["key"]].label if row["key"] in PROFILES else row["key"]
+    hazard_peaks = []
+    for h in HAZARDS:
+        values = [(s["hazards"][h]["risk"], s) for s in assessed if s["hazards"][h]["risk"] is not None]
+        if not values:
+            continue
+        risk, seg = max(values, key=lambda v: v[0])
+        hazard_peaks.append({
+            "hazard": h, "peak_risk": risk,
+            "applicable_segments": len(values),
+            "where": f"{seg['source_name']} → {seg['destination_name']}",
+        })
+    return {
+        "terrain_breakdown": sorted(terrain, key=lambda r: r["average_accessibility"]),
+        "region_breakdown": sorted(aggregate(lambda s: s.get("region") or "Unknown"),
+                                   key=lambda r: r["average_accessibility"]),
+        "hazard_peaks": hazard_peaks,
+    }
+
+
+@ner_bp.route("/network", methods=["GET"])
+def network_overview():
+    """What the network covers — and, just as plainly, what it does not."""
+    try:
+        locations = _provider.get_locations()
+        segments = _provider.get_road_segments()
+        terrain = _provider.get_segment_terrain() if hasattr(_provider, "get_segment_terrain") else {}
+
+        def count(values):
+            out = {}
+            for v in values:
+                out[v] = out.get(v, 0) + 1
+            return out
+
+        return jsonify({
+            "status": "success",
+            "data_source": "mock",
+            "network": "india" if terrain else "ner",
+            "locations": len(locations),
+            "segments": len(segments),
+            "network_km": round(sum(s.distance_km for s in segments), 1),
+            "states": sorted({loc.state for loc in locations}),
+            "regions": count(getattr(loc, "region", "North East") for loc in locations),
+            "terrain_classes": count(t["terrain_class"] for t in terrain.values()),
+            "road_classes": count(t["road_class"] for t in terrain.values()),
+            "seasonal_corridors": [
+                {"segment_id": k, "window": v["seasonal_closure_months"]}
+                for k, v in terrain.items() if v.get("seasonal_closure_months")
+            ],
+            "restricted_hours_corridors": [
+                {"segment_id": k, "window": v["travel_window"]}
+                for k, v in terrain.items() if v.get("travel_window")
+            ],
+            "coverage_statement": (
+                "A demonstration backbone: every mainland state and UT capital (or its adjacent "
+                "hub) plus key freight nodes, connected by approximate national-highway "
+                "corridors. It is not a complete road network, and the terrain attributes and "
+                "distances are sample values."
+            ),
+            "not_covered": [
+                "Andaman & Nicobar and Lakshadweep (no road connection to the mainland)",
+                "District and village roads below the backbone",
+                "Gandhinagar and Amaravati are represented by Ahmedabad and Vijayawada",
+            ],
+        }), 200
+    except Exception as e:
+        logger.error(f"Error describing network: {e}")
+        return _error(str(e), 500)
+
+
+@ner_bp.route("/terrain-profiles", methods=["GET"])
+def terrain_profiles():
+    """The per-terrain algorithm settings, so nobody has to read the source to audit them."""
+    from src.terrain.profiles import HAZARD_LABELS, describe_profiles
+    from src.terrain.speed import ROAD_CLASS_LABELS, ROAD_CLASS_SPEED_KMH
+
+    return jsonify({
+        "status": "success",
+        "profiles": describe_profiles(),
+        "hazard_labels": HAZARD_LABELS,
+        "road_classes": [
+            {"key": k, "label": ROAD_CLASS_LABELS[k], "base_speed_kmh": v}
+            for k, v in ROAD_CLASS_SPEED_KMH.items()
+        ],
+        "method": (
+            "Accessibility = 100 - sum(terrain weight x hazard risk) over the hazards that apply "
+            "to the corridor's terrain, with a cap when any hazard is extreme. Weights and "
+            "thresholds are documented expert policy (IMD thresholds where they exist), not "
+            "fitted to outcome data."
+        ),
+    }), 200
+
+
+@ner_bp.route("/incident-types", methods=["GET"])
+def incident_types():
+    """The incident taxonomy, so the web and field clients never hard-code a stale list."""
+    from src.modeling.incident_types import BLOCKING_SEVERITY, describe_incident_types
+
+    return jsonify({
+        "status": "success",
+        "incident_types": describe_incident_types(),
+        "blocking_severity": BLOCKING_SEVERITY,
+    }), 200
+
+
+@ner_bp.route("/scenarios", methods=["GET"])
+def scenarios():
+    """SIMULATED disruption scenarios. Every result produced under one is labelled simulated."""
+    from src.terrain.scenarios import list_scenarios
+
+    return jsonify({
+        "status": "success",
+        "simulated": True,
+        "warning": "Scenarios replace real conditions with a simulated extreme event for "
+                   "demonstration and testing. Never present their output as live.",
+        "scenarios": list_scenarios(),
+    }), 200
 
 
 @ner_bp.route("/model-info", methods=["GET"])
@@ -452,6 +679,10 @@ def weather():
         status = weather_provider.status()
         features = _service.provider.get_segment_features()
         segments = {s.id: s for s in _service.provider.get_road_segments()}
+        conditions = (
+            _service.provider.get_segment_conditions()
+            if hasattr(_service.provider, "get_segment_conditions") else {}
+        )
 
         corridors = []
         for segment_id, feature in sorted(features.items()):
@@ -468,6 +699,10 @@ def weather():
                 "weather_risk": segment.weather_risk,
                 "imd_band": _imd_band(rain_24h),
                 "derived_weather_risk": rainfall_to_weather_risk(rain_24h or 0, rain_48h or 0),
+                # Pan-India hazard inputs for the same corridor (absent on the NER network).
+                **({k: v for k, v in conditions[segment_id].items()
+                    if k in ("tmax_c", "tmin_c", "wind_kmh", "gust_kmh", "snow_cm", "visibility_m")}
+                   if segment_id in conditions else {}),
             })
 
         live = status.get("state") == "live"

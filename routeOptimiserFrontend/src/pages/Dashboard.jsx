@@ -9,7 +9,15 @@ import {
 } from "../components/ui";
 import { IconAlert } from "../components/icons";
 import { useApi } from "../hooks/useApi";
-import { accessibilityColor, incidentLabel, riskTextClass } from "../lib/accessibility";
+import {
+  HAZARD_LABELS,
+  accessibilityColor,
+  closureLabel,
+  incidentLabel,
+  riskColor,
+  riskTextClass,
+  terrainLabel,
+} from "../lib/accessibility";
 import { formatPercent, formatScore, timeAgo } from "../lib/format";
 
 /*
@@ -40,8 +48,39 @@ const Metric = ({ label, value, suffix, hint, tone = "text-ink", dot }) => (
   </div>
 );
 
+const GROUPINGS = [
+  { id: "terrain", label: "Terrain" },
+  { id: "region", label: "Region" },
+  { id: "state", label: "State" },
+];
+
+/** Comparison rows for the chosen grouping. Terrain/region exist only on the Pan-India API. */
+function comparisonRows(stats, groupBy) {
+  if (!stats) return [];
+  if (groupBy === "terrain" && stats.terrain_breakdown) {
+    return stats.terrain_breakdown.map((t) => ({
+      label: terrainLabel(t.key),
+      value: t.average_accessibility,
+      sublabel: `${t.segment_count} corridor(s) · ${Math.round(t.network_km).toLocaleString("en-IN")} km · hazard index ${Math.round(t.average_multi_hazard_index)}${t.impassable_count ? ` · ${t.impassable_count} closed` : ""}`,
+    }));
+  }
+  if (groupBy === "region" && stats.region_breakdown) {
+    return stats.region_breakdown.map((r) => ({
+      label: r.key,
+      value: r.average_accessibility,
+      sublabel: `${r.segment_count} corridor(s)${r.impassable_count ? ` · ${r.impassable_count} closed` : ""}`,
+    }));
+  }
+  return stats.state_breakdown.map((s) => ({
+    label: s.state,
+    value: s.average_accessibility,
+    sublabel: `${s.segment_count} corridor(s)${s.impassable_count ? ` · ${s.impassable_count} impassable` : ""}`,
+  }));
+}
+
 const Dashboard = () => {
   const [selectedPoint, setSelectedPoint] = useState(null);
+  const [groupBy, setGroupBy] = useState("terrain");
 
   // Poll on the spec's 30-second accessibility-refresh budget. Background refreshes don't
   // blank the screen (see useApi), so the page stays readable while it updates.
@@ -87,7 +126,8 @@ const Dashboard = () => {
         <div>
           <h1 className="text-lg">Operations Overview</h1>
           <p className="text-[11px] text-ink-muted mt-0.5">
-            Eight North Eastern states · synthetic risk data, model estimates
+            Pan-India network · sample terrain &amp; risk data, model estimates
+            {data?.conditions ? (data.conditions.live ? " · live weather (Open-Meteo)" : " · snapshot weather") : ""}
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -332,28 +372,63 @@ const Dashboard = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
-              <SectionHeading hint="Lowest average accessibility first">
-                State Comparison
+              <SectionHeading
+                hint="Lowest average accessibility first"
+                action={stats?.terrain_breakdown ? (
+                  <div className="flex gap-1" role="group" aria-label="Compare by">
+                    {GROUPINGS.map((g) => (
+                      <button key={g.id} className="chip" aria-pressed={groupBy === g.id}
+                        onClick={() => setGroupBy(g.id)}>{g.label}</button>
+                    ))}
+                  </div>
+                ) : null}
+              >
+                {groupBy === "terrain" && stats?.terrain_breakdown ? "Terrain Comparison"
+                  : groupBy === "region" && stats?.region_breakdown ? "Region Comparison" : "State Comparison"}
               </SectionHeading>
               {stats ? (
                 /* No colorFor by design: bar length already encodes the score. Colouring it
                    by that same value is one channel repeating another. */
-                <BarChart
-                  ariaLabel="Average accessibility by state"
-                  data={stats.state_breakdown.map((s) => ({
-                    label: s.state,
-                    value: s.average_accessibility,
-                    sublabel: `${s.segment_count} corridor(s)${
-                      s.impassable_count ? ` · ${s.impassable_count} impassable` : ""
-                    }`,
-                  }))}
-                />
+                <div className="max-h-[420px] overflow-y-auto pr-1">
+                  <BarChart
+                    ariaLabel={`Average accessibility by ${groupBy}`}
+                    data={comparisonRows(stats, stats.terrain_breakdown ? groupBy : "state")}
+                  />
+                </div>
               ) : (
                 <div className="space-y-3">
                   {[0, 1, 2, 3, 4].map((i) => <div key={i} className="h-8 skeleton rounded" />)}
                 </div>
               )}
             </Card>
+
+            {stats?.hazard_peaks && (
+              <Card className="lg:col-span-2" data-testid="hazard-watch">
+                <SectionHeading hint="Worst current reading of each hazard, on the corridors where it applies">
+                  Hazard Watch
+                </SectionHeading>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                  {stats.hazard_peaks.map((h) => (
+                    <div key={h.hazard} className="rounded-lg px-2.5 py-2" style={{ backgroundColor: "var(--surface-sunken)" }}>
+                      <p className="text-[10px] text-ink-muted">{HAZARD_LABELS[h.hazard]}</p>
+                      <p className="text-lg font-semibold tabular-nums" style={{ color: riskColor(h.peak_risk) }}>
+                        {Math.round(h.peak_risk)}
+                      </p>
+                      <p className="text-[10px] text-ink-muted truncate" title={h.where}>{h.where}</p>
+                      <p className="text-[10px] text-ink-muted">{h.applicable_segments} corridors</p>
+                    </div>
+                  ))}
+                </div>
+                {data?.closures_by_type && Object.keys(data.closures_by_type).length > 0 && (
+                  <p className="text-xs text-ink-secondary mt-3">
+                    Closed now:{" "}
+                    {Object.entries(data.closures_by_type)
+                      .map(([type, n]) => `${n} × ${closureLabel(type).toLowerCase()}`)
+                      .join(" · ")}
+                  </p>
+                )}
+              </Card>
+            )}
 
             <Card>
               <SectionHeading

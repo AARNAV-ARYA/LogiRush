@@ -140,6 +140,13 @@ def test_replan_detects_a_route_change_after_a_blocking_incident(client):
     # The create response carries full segment objects; the stored snapshot carries ids.
     blocked_segment = created["planned_route"]["segments"][0]["segment_id"]
 
+    # Place the report on the blocked corridor itself (its midpoint), whichever corridor the
+    # planner happened to choose. The coordinates used to be hard-coded to the midpoint of
+    # Guwahati-Silchar, which only worked while that was the chosen first leg.
+    corridor = client.get(f"/api/ner/road-segments/{blocked_segment}").get_json()["segment"]
+    mid_lat = (corridor["source_coords"][0] + corridor["destination_coords"][0]) / 2
+    mid_lon = (corridor["source_coords"][1] + corridor["destination_coords"][1]) / 2
+
     session = get_session()
     try:
         session.add(
@@ -147,8 +154,8 @@ def test_replan_detects_a_route_change_after_a_blocking_incident(client):
                 client_uuid=str(uuid.uuid4()),
                 incident_type="landslide",
                 severity=5,
-                latitude=25.49,
-                longitude=92.26,
+                latitude=mid_lat,
+                longitude=mid_lon,
                 segment_id=blocked_segment,
                 verification_status="verified",
                 reported_at=datetime.now(timezone.utc),

@@ -27,12 +27,13 @@ from __future__ import annotations
 
 import logging
 
-from src.modeling.cargo_profiles import get_weights
+from src.modeling.cargo_profiles import get_hazard_sensitivity, get_weights
 from src.modeling.transport_modes import (
     NETWORK_DETOUR_FACTOR,
     TRANSPORT_MODES,
     cost_breakdown,
     duration_hours,
+    excluded_road_classes,
     haversine_km,
     infrastructure_gap,
     mode_serves,
@@ -62,51 +63,55 @@ MODE_RELIABILITY_PENALTY = {
 }
 
 
-def _prune_graph(graph, min_accessibility: float):
+def _prune_graph(graph, min_accessibility: float, excluded_classes=frozenset()):
     """The sub-network a vehicle class can actually operate on.
 
     Segments below the mode's accessibility floor are removed outright rather than penalised,
     because a road that cannot carry a 25-tonne truck is not an expensive option for that
-    truck — it is not an option at all.
+    truck — it is not an option at all. The same holds for road classes the vehicle is not
+    suited to at all (a 25 t rig on a hairpin ghat road), whatever their condition today.
     """
-    if min_accessibility <= 0:
+    if min_accessibility <= 0 and not excluded_classes:
         return graph
+
+    def usable(d):
+        return (d.get("accessibility_score", 0.0) >= min_accessibility
+                and d.get("road_class") not in excluded_classes)
+
     # The network is a MultiDiGraph (parallel corridors between the same pair are real), so
     # edges must be identified by key as well as endpoints.
     if graph.is_multigraph():
-        keep = [
-            (u, v, k)
-            for u, v, k, d in graph.edges(keys=True, data=True)
-            if d.get("accessibility_score", 0.0) >= min_accessibility
-        ]
+        keep = [(u, v, k) for u, v, k, d in graph.edges(keys=True, data=True) if usable(d)]
     else:
-        keep = [
-            (u, v)
-            for u, v, d in graph.edges(data=True)
-            if d.get("accessibility_score", 0.0) >= min_accessibility
-        ]
+        keep = [(u, v) for u, v, d in graph.edges(data=True) if usable(d)]
     if not keep:
         return None
     return graph.edge_subgraph(keep).copy()
 
 
-def _road_option(graph, origin, destination, mode_id, cargo_type, urgency, weights):
+def _road_option(graph, origin, destination, mode_id, cargo_type, urgency, weights, departure=None):
     """Route this vehicle class over the network it can use. Returns (route, reason_if_none)."""
     mode = TRANSPORT_MODES[mode_id]
-    pruned = _prune_graph(graph, mode["min_accessibility"])
+    excluded = excluded_road_classes(mode_id)
+    pruned = _prune_graph(graph, mode["min_accessibility"], excluded)
+    suitability = (
+        f" and avoiding {', '.join(sorted(c.replace('_', ' ') for c in excluded))}" if excluded else ""
+    )
     if pruned is None or origin not in pruned or destination not in pruned:
         return None, (
             f"No corridor between these locations meets the "
-            f"{mode['min_accessibility']:.0f}/100 accessibility this vehicle class needs."
+            f"{mode['min_accessibility']:.0f}/100 accessibility this vehicle class needs{suitability}."
         )
-    router = NERRouter(pruned, weights=weights)
+    sensitivity = get_hazard_sensitivity(cargo_type)
+    router = NERRouter(pruned, weights=weights, hazard_sensitivity=sensitivity)
     raw = router.find_routes(origin, destination, max_routes=1)
     if not raw:
         return None, (
             f"Every remaining path is blocked for this vehicle class once segments below "
-            f"{mode['min_accessibility']:.0f}/100 accessibility are excluded."
+            f"{mode['min_accessibility']:.0f}/100 accessibility are excluded{suitability}."
         )
-    return build_route_response(raw[0], pruned, cargo_type, urgency), None
+    return build_route_response(raw[0], pruned, cargo_type, urgency, departure=departure,
+                                hazard_sensitivity=sensitivity), None
 
 
 def _minmax(values):
@@ -126,6 +131,7 @@ def plan_transport_options(
     urgency: str,
     coords_by_id: dict,
     name_by_id: dict,
+    departure=None,
 ) -> dict:
     """Build the full option set for this consignment.
 
@@ -160,7 +166,7 @@ def plan_transport_options(
         # 2. Route it on the network this mode can use.
         if mode["network"] == "road":
             route, reason = _road_option(
-                graph, origin, destination, mode_id, cargo_type, urgency, weights
+                graph, origin, destination, mode_id, cargo_type, urgency, weights, departure
             )
             if route is None:
                 options.append({**base, "feasible": False, "reason": reason, "blocker": "access"})
@@ -311,10 +317,13 @@ def _why(opt, feasible, cargo_type, weight_kg) -> list:
         reasons.append(opt["cost_caveat"])
 
     if opt["network"] == "road":
+        excluded = excluded_road_classes(opt["mode"])
         reasons.append(
             f"Routed over {opt['distance_km']:,.0f} km via {' -> '.join(opt['path_names'])}, "
             f"restricted to segments scoring at least "
-            f"{TRANSPORT_MODES[opt['mode']]['min_accessibility']:.0f}/100 accessibility."
+            f"{TRANSPORT_MODES[opt['mode']]['min_accessibility']:.0f}/100 accessibility"
+            + (f" and kept off {', '.join(sorted(c.replace('_', ' ') for c in excluded))}s."
+               if excluded else ".")
         )
     else:
         reasons.append(

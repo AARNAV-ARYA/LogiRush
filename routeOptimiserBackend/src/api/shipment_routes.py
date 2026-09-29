@@ -100,6 +100,9 @@ def _summarise_route(route: dict) -> dict:
         "priced_mode": route.get("priced_mode"),
         "priced_mode_label": route.get("priced_mode_label"),
         "vehicles_required": route.get("vehicles_required"),
+        # Pan-India: the schedule-aware arrival (night halts included) and terrain mix.
+        "elapsed_hours": (route.get("schedule") or {}).get("elapsed_hours"),
+        "terrain_summary": route.get("terrain_summary"),
     }
 
 
@@ -118,6 +121,9 @@ def create_shipment():
                 cargo_type=cleaned["cargo_type"],
                 urgency=cleaned["urgency"],
                 weight_kg=cleaned.get("weight_kg") or DEFAULT_WEIGHT_KG,
+                # Optional departure date: decides seasonal closures (Zojila in January) and
+                # anchors the restriction-aware ETA. Not a scenario — shipments are real.
+                travel_date=payload.get("travel_date"),
             )
         except LookupError as e:
             return _error(str(e), 404)

@@ -72,7 +72,7 @@ export function getAuthToken() {
 const SECOND = 1000;
 const FRESHNESS_MS = [
   // Fixed for the life of a deployment.
-  [/^\/api\/ner\/(locations|cargo-types|transport-modes|model-info|data-sources)/, 5 * 60 * SECOND],
+  [/^\/api\/ner\/(locations|cargo-types|transport-modes|model-info|data-sources|network|terrain-profiles|scenarios|incident-types)/, 5 * 60 * SECOND],
   // Live network condition. The screens that show it poll on their own; this only has to
   // survive a page transition.
   [/^\/api\/ner\/(segments|dashboard|analytics|accessibility-summary|road-segments)/, 10 * SECOND],
@@ -154,6 +154,15 @@ export function invalidateReads(pathPrefix) {
   }
 }
 
+/** "?scenario=..&month=.." from an options object, skipping empty values. */
+function conditionQuery({ scenario, month } = {}) {
+  const params = new URLSearchParams();
+  if (scenario) params.set("scenario", scenario);
+  if (month) params.set("month", month);
+  const q = params.toString();
+  return q ? `?${q}` : "";
+}
+
 export const api = {
   // --- session ---
   login: (username, password) =>
@@ -168,10 +177,11 @@ export const api = {
   // --- read ---
   health: () => request("/api/ner/health"),
   getLocations: () => request("/api/ner/locations"),
-  getSegments: () => request("/api/ner/segments"),
+  // Pan-India: condition-aware reads take { scenario, month }. A scenario is SIMULATED.
+  getSegments: (opts) => request(`/api/ner/segments${conditionQuery(opts)}`),
   getSegment: (id) => request(`/api/ner/road-segments/${id}`),
-  getDashboard: () => request("/api/ner/dashboard"),
-  getAnalytics: () => request("/api/ner/analytics"),
+  getDashboard: (opts) => request(`/api/ner/dashboard${conditionQuery(opts)}`),
+  getAnalytics: (opts) => request(`/api/ner/analytics${conditionQuery(opts)}`),
   getAccessibilitySummary: () => request("/api/ner/accessibility-summary"),
   getCargoTypes: () => request("/api/ner/cargo-types"),
   getTransportModes: () => request("/api/ner/transport-modes"),
@@ -179,6 +189,12 @@ export const api = {
   // Provenance for every input on every screen. Served by the backend rather than written
   // into the UI so the claim shown to an operator cannot drift from the code that loads it.
   getDataSources: () => request("/api/ner/data-sources"),
+  // Pan-India reference data. (The whole API is also mounted at /api/india/*; the console
+  // keeps the /api/ner paths so its offline service-worker cache keeps working unchanged.)
+  getNetwork: () => request("/api/ner/network"),
+  getTerrainProfiles: () => request("/api/ner/terrain-profiles"),
+  getScenarios: () => request("/api/ner/scenarios"),
+  getIncidentTypes: () => request("/api/ner/incident-types"),
 
   // --- routing ---
   planRoute: (payload) =>

@@ -7,7 +7,7 @@ import {
   Badge, Card, DemoDataNotice, EmptyState, ErrorState, SectionHeading, Spinner, Toggle,
 } from "../components/ui";
 import { useApi } from "../hooks/useApi";
-import { incidentLabel } from "../lib/accessibility";
+import { BLOCKING_INCIDENT_TYPES, incidentLabel } from "../lib/accessibility";
 import { formatDistance, timeAgo } from "../lib/format";
 
 const SEVERITY_TONES = ["neutral", "neutral", "warning", "warning", "danger", "danger"];
@@ -112,7 +112,7 @@ const IncidentRow = ({ incident, onChanged }) => {
 
   const isClosure =
     incident.severity >= 5 &&
-    ["landslide", "flood", "road_block", "bridge_damage"].includes(incident.type);
+    BLOCKING_INCIDENT_TYPES.includes(incident.type);
   const closesCorridor = status === "verified" && isClosure && incident.segment_id;
   const terminal = ["resolved", "rejected", "withdrawn"].includes(status);
   // "Verify" is only meaningful where there is something left to sign. On an already-verified

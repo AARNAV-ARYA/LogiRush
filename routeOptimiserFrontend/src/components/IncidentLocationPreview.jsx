@@ -19,7 +19,7 @@ import "leaflet/dist/leaflet.css";
 import { STATUS_COLORS } from "../lib/accessibility";
 import { LABELS, TILES, TILE_THEME } from "../lib/mapTiles";
 
-const NER_CENTER = [25.9, 92.6];
+const INDIA_CENTER = [22.8, 81.0];
 
 /** Keep the view on the point when it is changed from outside (typing, or "use my location"). */
 function Recenter({ position }) {
@@ -53,8 +53,8 @@ export default function IncidentLocationPreview({ latitude, longitude, corridor,
       data-testid="incident-location-preview"
     >
       <MapContainer
-        center={position || NER_CENTER}
-        zoom={position ? 9 : 6}
+        center={position || INDIA_CENTER}
+        zoom={position ? 9 : 4}
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={false}
         zoomControl={false}

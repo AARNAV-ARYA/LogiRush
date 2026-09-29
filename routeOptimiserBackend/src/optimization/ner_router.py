@@ -42,11 +42,52 @@ HEURISTIC_SPEED_KMH = 60.0
 class NERRouter(MOAStar):
     OBJECTIVE_KEYS = ("time", "cost", "accessibility", "risk", "reliability")
 
-    def __init__(self, G, weights: dict | None = None):
+    def __init__(self, G, weights: dict | None = None, hazard_sensitivity: dict | None = None):
         # MOAStar.__init__ constructs GeocodingUtils; we reuse it for node coordinates.
         super().__init__(G)
         self.weights = weights or {obj: 0.2 for obj in OBJECTIVES}
         self._edge_penalties: dict = {}
+        # Cargo-specific hazard sensitivity (Pan-India). With it, the risk objective of a
+        # terrain-aware edge is recomputed from its per-hazard risks, so a perishable load
+        # genuinely avoids a heatwave corridor that a load of cement would take.
+        self.hazard_sensitivity = {k: float(v) for k, v in (hazard_sensitivity or {}).items() if v != 1.0}
+        self._risk_cache: dict = {}
+        self.heuristic_speed_kmh = self._admissible_speed()
+
+    def _admissible_speed(self) -> float:
+        """The fastest straight-line progress any edge in this graph allows, in km/h.
+
+        The heuristic divides straight-line distance by a speed, and it stays admissible (never
+        overestimates) only if that speed is at least as fast as any edge's own
+        straight-line-distance / travel-time. The NER graph never beat 60 km/h, so a constant
+        was fine; the Pan-India graph has expressways, so the bound is measured from the graph
+        itself rather than assumed. Never lower than the original 60, so NER behaviour is
+        unchanged.
+        """
+        best = HEURISTIC_SPEED_KMH
+        for u, v, data in self.G.edges(data=True):
+            a, b = self.G.nodes.get(u, {}), self.G.nodes.get(v, {})
+            hours = data.get("time") or 0
+            if hours <= 0 or "latitude" not in a or "latitude" not in b:
+                continue
+            straight = self._haversine((a["latitude"], a["longitude"]), (b["latitude"], b["longitude"]))
+            best = max(best, straight / hours)
+        return best
+
+    def _edge_risk(self, edge_data) -> float:
+        """Risk objective for one edge, with the cargo's hazard sensitivity applied if any."""
+        if not self.hazard_sensitivity or "hazard_risks" not in edge_data:
+            return edge_data["obj_risk"]
+        key = edge_data.get("segment_id")
+        cached = self._risk_cache.get(key)
+        if cached is None:
+            from src.terrain.hazards import disruption_index
+
+            cached = disruption_index(
+                edge_data["hazard_risks"], edge_data.get("hazard_relevance") or {}, self.hazard_sensitivity
+            )
+            self._risk_cache[key] = cached
+        return cached
 
     # ------------------------------------------------------------------ overrides
 
@@ -76,7 +117,7 @@ class NERRouter(MOAStar):
             costs[0] + edge_data["obj_time"] + penalty,
             costs[1] + edge_data["obj_cost"],
             max(costs[2], edge_data["obj_accessibility"]),
-            max(costs[3], edge_data["obj_risk"]),
+            max(costs[3], self._edge_risk(edge_data)),
             max(costs[4], edge_data["obj_reliability"]),
         )
 
@@ -98,7 +139,7 @@ class NERRouter(MOAStar):
             (node_data["latitude"], node_data["longitude"]),
             (goal_data["latitude"], goal_data["longitude"]),
         )
-        best_case_hours = distance_km / HEURISTIC_SPEED_KMH
+        best_case_hours = distance_km / self.heuristic_speed_kmh
         normalised_time = min(100.0, (best_case_hours / TIME_REFERENCE_HOURS) * 100.0)
         return self._weight_vector()[0] * normalised_time
 
@@ -202,7 +243,7 @@ class NERRouter(MOAStar):
             totals[0] += edge["obj_time"]
             totals[1] += edge["obj_cost"]
             totals[2] = max(totals[2], edge["obj_accessibility"])
-            totals[3] = max(totals[3], edge["obj_risk"])
+            totals[3] = max(totals[3], self._edge_risk(edge))
             totals[4] = max(totals[4], edge["obj_reliability"])
         return tuple(round(v, 3) for v in totals)
 
@@ -263,9 +304,15 @@ def cheapest_road_mode(weight_kg: float, worst_accessibility: float | None) -> s
 
 
 def build_route_response(
-    route: dict, G, cargo_type: str, urgency: str, weight_kg: float = DEFAULT_WEIGHT_KG
+    route: dict, G, cargo_type: str, urgency: str, weight_kg: float = DEFAULT_WEIGHT_KG,
+    departure=None, hazard_sensitivity: dict | None = None,
 ) -> dict:
-    """Turn a raw route into the API payload, including its explanation."""
+    """Turn a raw route into the API payload, including its explanation.
+
+    On the Pan-India network the payload also carries the route's terrain breakdown, its
+    peak exposure per hazard, and a schedule-aware ETA that applies routine night
+    restrictions (see terrain/speed.schedule_eta).
+    """
     segments = []
     total_distance = 0.0
     total_cost = 0.0
@@ -277,7 +324,7 @@ def build_route_response(
         total_cost += edge["monetary_cost_inr"]
         accessibility_scores.append(edge["accessibility_score"])
         risk_scores.append(edge["obj_risk"])
-        segments.append({
+        entry = {
             "segment_id": edge["segment_id"],
             "highway_corridor": edge["highway_corridor"],
             "road_status": edge["road_status"],
@@ -285,7 +332,27 @@ def build_route_response(
             "travel_time_hours": edge["time"],
             "accessibility_score": edge["accessibility_score"],
             "disruption_risk_percent": edge["obj_risk"],
-        })
+        }
+        if "terrain_class" in edge:
+            entry.update({
+                "from_name": edge.get("source_name"),
+                "to_name": edge.get("destination_name"),
+                "terrain_class": edge.get("terrain_class"),
+                "secondary_terrain": edge.get("secondary_terrain"),
+                "road_class": edge.get("road_class"),
+                "travel_window": edge.get("travel_window"),
+                "dominant_hazard": edge.get("dominant_hazard"),
+                "hazard_risks": edge.get("hazard_risks"),
+                "simulated": edge.get("simulated", False),
+                "condition_slowdowns": edge.get("condition_slowdowns") or [],
+            })
+            if hazard_sensitivity:
+                from src.terrain.hazards import disruption_index
+
+                entry["cargo_adjusted_risk_percent"] = disruption_index(
+                    edge.get("hazard_risks") or {}, edge.get("hazard_relevance") or {}, hazard_sensitivity
+                )
+        segments.append(entry)
 
     node_names = [G.nodes[n].get("name", n) for n in route["path"]]
     worst_accessibility = min(accessibility_scores) if accessibility_scores else None
@@ -297,6 +364,8 @@ def build_route_response(
     # weakest segment of this route can actually carry.
     chosen_mode = cheapest_road_mode(weight_kg, worst_accessibility)
     priced = cost_breakdown(weight_kg, total_distance, chosen_mode)
+
+    terrain = _terrain_summary(segments, departure) if segments and "terrain_class" in segments[0] else None
 
     return {
         "path": route["path"],
@@ -321,12 +390,63 @@ def build_route_response(
         "risk_score": avg_risk,
         "peak_segment_risk_percent": peak_risk,
         "explanation": _explain(
-            node_names, segments, cargo_type, urgency, avg_accessibility, worst_accessibility, peak_risk
+            node_names, segments, cargo_type, urgency, avg_accessibility, worst_accessibility, peak_risk,
+            terrain,
         ),
+        **({"terrain_summary": terrain["summary"], "hazard_exposure": terrain["exposure"],
+            "schedule": terrain["schedule"], "simulated": terrain["simulated"]} if terrain else {}),
     }
 
 
-def _explain(node_names, segments, cargo_type, urgency, avg_accessibility, worst_accessibility, peak_risk) -> dict:
+def _terrain_summary(segments: list, departure=None) -> dict:
+    """Terrain mix, peak hazard exposure and the restriction-aware schedule for a route."""
+    from src.terrain.profiles import HAZARD_LABELS, PROFILES
+    from src.terrain.speed import parse_departure, schedule_eta
+
+    by_terrain: dict = {}
+    for seg in segments:
+        key = seg.get("terrain_class") or "plains"
+        by_terrain[key] = by_terrain.get(key, 0.0) + seg["distance_km"]
+    total = sum(by_terrain.values()) or 1.0
+    summary = [
+        {"terrain": k, "label": PROFILES[k].label if k in PROFILES else k,
+         "distance_km": round(v, 1), "share_percent": round(100.0 * v / total, 1)}
+        for k, v in sorted(by_terrain.items(), key=lambda kv: kv[1], reverse=True)
+    ]
+
+    exposure = {}
+    for seg in segments:
+        for hazard, risk in (seg.get("hazard_risks") or {}).items():
+            if risk is None:
+                continue
+            current = exposure.get(hazard)
+            if current is None or risk > current["peak_risk"]:
+                exposure[hazard] = {
+                    "hazard": hazard,
+                    "label": HAZARD_LABELS.get(hazard, hazard),
+                    "peak_risk": round(risk, 1),
+                    "segment_id": seg["segment_id"],
+                    "where": f"{seg.get('from_name')} → {seg.get('to_name')}",
+                }
+    ranked_exposure = sorted(exposure.values(), key=lambda e: e["peak_risk"], reverse=True)
+
+    legs = [
+        {"segment_id": s["segment_id"], "hours": s["travel_time_hours"],
+         "travel_window": s.get("travel_window"),
+         "label": f"{s.get('from_name')} → {s.get('to_name')}"}
+        for s in segments
+    ]
+    schedule = schedule_eta(legs, parse_departure(departure))
+    return {
+        "summary": summary,
+        "exposure": ranked_exposure,
+        "schedule": schedule,
+        "simulated": any(s.get("simulated") for s in segments),
+    }
+
+
+def _explain(node_names, segments, cargo_type, urgency, avg_accessibility, worst_accessibility, peak_risk,
+             terrain: dict | None = None) -> dict:
     """Plain-language reasoning for why this route was recommended.
 
     Framed as a recommendation with stated caveats — never a guarantee of safe passage.
@@ -353,11 +473,36 @@ def _explain(node_names, segments, cargo_type, urgency, avg_accessibility, worst
             f"({riskiest['highway_corridor']})."
         )
 
+    if terrain:
+        mix = ", ".join(f"{t['label'].lower()} {t['share_percent']:.0f}%" for t in terrain["summary"][:3])
+        reasons.append(f"Terrain mix: {mix}.")
+        top = [e for e in terrain["exposure"] if e["peak_risk"] >= 35][:2]
+        if top:
+            reasons.append("Main hazard exposure: " + "; ".join(
+                f"{e['label'].lower()} {e['peak_risk']:.0f}/100 on {e['where']}" for e in top) + ".")
+        slowed = [s for s in segments if s.get("condition_slowdowns")]
+        if slowed:
+            reasons.append("Travel time already includes slowdowns for " + ", ".join(
+                sorted({why for s in slowed for why in s["condition_slowdowns"]})) + ".")
+        schedule = terrain["schedule"]
+        if schedule["halts"]:
+            reasons.append(
+                f"Routine movement restrictions add {schedule['halt_hours']:.1f} h of halts "
+                f"(e.g. {schedule['halts'][0]['reason']})."
+            )
+        if terrain["simulated"]:
+            reasons.append("SIMULATED scenario conditions apply to part of this route.")
+
+    caveat = ("This is a model-based recommendation, not a guarantee. Predicted disruption "
+              "probabilities come from a model trained on synthetic data and must be "
+              "confirmed against live ground conditions before operational use.")
+    if terrain:
+        caveat += (" Hazard scores use published IMD thresholds and documented terrain rules; "
+                   "terrain attributes are sample data and seasonal windows are typical dates, "
+                   "not official announcements.")
     return {
         "summary": reasons[0],
         "reasons": reasons,
         "priority_order": priority_order,
-        "caveat": "This is a model-based recommendation, not a guarantee. Predicted disruption "
-                  "probabilities come from a model trained on synthetic data and must be "
-                  "confirmed against live ground conditions before operational use.",
+        "caveat": caveat,
     }

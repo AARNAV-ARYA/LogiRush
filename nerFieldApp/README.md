@@ -1,4 +1,9 @@
-# NER Field Reporter (Expo / React Native)
+# LogiRush Field Reporter (Expo / React Native)
+
+> Formerly "NER Field Reporter". The app now reports incidents anywhere on the Pan-India network,
+> with the extra incident types other terrains need (snow blockage, avalanche, cyclone debris,
+> waterlogging, dense fog, heat damage). The Expo slug and URL scheme are unchanged so existing
+> installs and EAS builds keep working.
 
 The mobile half of the platform. The web console is for the control room; this is for the
 person standing at the obstruction.

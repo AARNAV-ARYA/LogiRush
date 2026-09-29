@@ -163,3 +163,23 @@ each restart is discarding the SQLite file.
 | Render | `WEATHER_TIMEOUT_S` | no | how long a fetch may block before falling back, default 4.0 |
 | Vercel | `VITE_API_BASE_URL` | yes | build-time; redeploy to change |
 | Expo | `EXPO_PUBLIC_API_BASE_URL` | yes to share data | bundle-time; restart to change |
+
+---
+
+## Upgrading an existing deployment to Pan-India
+
+Nothing new is required: the backend serves the Pan-India network by default. It keeps
+`/api/ner/*` and also mounts the same API at `/api/india/*`, so the deployed field app
+keeps working unchanged.
+
+1. Deploy the backend as usual (Render redeploys from the repository).
+2. Add the regional demo verifier accounts to an existing database:
+   `cd routeOptimiserBackend && python seed_users.py`. The startup bootstrap only seeds
+   an *empty* roster.
+3. Rebuild the web console (`npm ci && npm run build`, or let Vercel do it).
+4. Optional: set `LOGIRUSH_NETWORK=ner` to serve the original North-East-only network
+   exactly as before.
+
+The first live-weather fetch now reads temperature, wind, snow and visibility as well as
+rain, at about 400 points (four concurrent Open-Meteo requests). If Open-Meteo is
+unreachable, the platform falls back to the labelled snapshot as it always has.

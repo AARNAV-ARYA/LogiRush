@@ -28,7 +28,8 @@ from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
-INCIDENT_TYPES = ["landslide", "flood", "road_block", "bridge_damage", "accident", "other"]
+# The taxonomy lives in a SQLAlchemy-free module so the scoring service can share it.
+from src.modeling.incident_types import BLOCKING_INCIDENT_TYPES, INCIDENT_TYPES  # noqa: E402,F401 (re-exported)
 
 # Where a report came in from. Recorded, never inferred: an unmarked caller is "api", not a
 # guess at whichever client is more common.
@@ -228,7 +229,9 @@ ROLES = ["reporter", "verifier", "controller"]
 # one drives a truck into a landslide. It is therefore the one action in this system that
 # requires a second, different verifier to countersign before it takes effect.
 COUNTERSIGN_SEVERITY = 5
-COUNTERSIGN_TYPES = {"landslide", "road_block", "bridge_damage", "flood"}
+# Exactly the types whose verification can close a road — one set, so the two-person rule and
+# the closure rule can never disagree.
+COUNTERSIGN_TYPES = set(BLOCKING_INCIDENT_TYPES)
 
 
 class User(Base):
