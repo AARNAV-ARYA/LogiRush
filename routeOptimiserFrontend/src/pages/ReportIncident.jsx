@@ -318,6 +318,7 @@ const ReportIncident = () => {
                   ? {
                       source_coords: attribution.source_coords,
                       destination_coords: attribution.destination_coords,
+                      geometry: attribution.geometry,
                     }
                   : null
               }

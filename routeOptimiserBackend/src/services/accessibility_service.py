@@ -196,7 +196,7 @@ class AccessibilityService:
             logger.warning(f"Could not load incidents ({e}); continuing with zero incident pressure.")
             return []
 
-    def _incident_pressure(self, segment, locations_by_id, incidents) -> dict:
+    def _incident_pressure(self, segment, locations_by_id, incidents, geometry=None) -> dict:
         """Attribute nearby incidents to a segment and convert them into a 0-100 risk figure.
 
         Rule: each attributed incident contributes severity x 6 points (so a severity-5 report
@@ -220,7 +220,13 @@ class AccessibilityService:
 
         attributed, score, blocking = [], 0.0, False
         for inc in incidents:
-            distance_km = _point_to_segment_km((inc.latitude, inc.longitude), seg_start, seg_end)
+            if geometry:
+                # Pan-India: distance to the road itself when its polyline is known.
+                from src.data_processing.geometry import point_to_polyline_km
+
+                distance_km = point_to_polyline_km((inc.latitude, inc.longitude), geometry)
+            else:
+                distance_km = _point_to_segment_km((inc.latitude, inc.longitude), seg_start, seg_end)
             # An explicit attribution reaches further than plain proximity — that is the
             # point of it — but not without limit. Rows written before the snap radius
             # existed can carry an attribution from anywhere, and one of those must not be
@@ -447,8 +453,13 @@ class AccessibilityService:
         conditions_by_id = self.provider.get_segment_conditions()
         live_status = self.provider.conditions_status()
         incidents = self._load_recent_incidents()
+        geometry = self.provider.get_segment_geometry() if hasattr(self.provider, "get_segment_geometry") else {}
 
-        pressures = [self._incident_pressure(s, locations_by_id, incidents) for s in segments]
+        pressures = [
+            self._incident_pressure(s, locations_by_id, incidents,
+                                    geometry=(geometry.get(s.id) or {}).get("coords"))
+            for s in segments
+        ]
 
         # Conditions first (a scenario may change rainfall, which the model reads).
         conditions, simulated = [], []
@@ -561,6 +572,9 @@ class AccessibilityService:
                 "region": attrs.get("region"),
                 "source_coords": [source.latitude, source.longitude] if source else None,
                 "destination_coords": [destination.latitude, destination.longitude] if destination else None,
+                # Real road polyline when available, else the two endpoints.
+                "geometry": [list(c) for c in (geometry.get(segment.id) or {}).get("coords", [])] or None,
+                "geometry_source": (geometry.get(segment.id) or {}).get("source", "straight_line"),
                 "distance_km": segment.distance_km,
                 "travel_time_hours": travel_time,
                 "nominal_travel_time_hours": segment.travel_time_hours,
@@ -673,11 +687,20 @@ class AccessibilityService:
         Deterministic geometry, no ML, per the AI Usage Policy.
         """
         locations = {loc.id: loc for loc in self.provider.get_locations()}
+        geometry = self.provider.get_segment_geometry() if hasattr(self.provider, "get_segment_geometry") else {}
         best_id, best_distance = None, float("inf")
         for segment in self.provider.get_road_segments():
             source = locations.get(segment.source)
             destination = locations.get(segment.destination)
             if not source or not destination:
+                continue
+            coords = (geometry.get(segment.id) or {}).get("coords")
+            if coords and len(coords) > 2:
+                from src.data_processing.geometry import point_to_polyline_km
+
+                distance = point_to_polyline_km((latitude, longitude), coords)
+                if distance < best_distance:
+                    best_id, best_distance = segment.id, distance
                 continue
             distance = _point_to_segment_km(
                 (latitude, longitude),

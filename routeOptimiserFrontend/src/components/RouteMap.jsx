@@ -78,6 +78,13 @@ const REGIONAL_HUBS = new Set([
 const REGIONAL_LABEL_ZOOM = 6;
 const MINOR_LABEL_ZOOM = 8;
 
+/** The real road polyline when the backend has one, otherwise the straight chord. */
+function corridorPositions(segment) {
+  return segment.geometry?.length >= 2
+    ? segment.geometry
+    : [segment.source_coords, segment.destination_coords];
+}
+
 /** Track zoom so labels can be revealed progressively. */
 function useZoomLevel() {
   const map = useMap();
@@ -292,6 +299,7 @@ export default function RouteMap({
       ? drawable.filter((s) => highlightSet.has(s.id))
       : drawable;
     const points = source.flatMap((s) => [s.source_coords, s.destination_coords]);
+    // (Endpoints are enough for bounds; a road's bends stay close to its chord's box.)
     return points.length >= 2 ? points : null;
   }, [drawable, highlightSet, fitToHighlight]);
 
@@ -359,7 +367,7 @@ export default function RouteMap({
               {/* A dark casing under every corridor. Without it a thin bright line over a
                   dark basemap shimmers and is hard to follow at distance. */}
               <Polyline
-                positions={[segment.source_coords, segment.destination_coords]}
+                positions={corridorPositions(segment)}
                 interactive={false}
                 pathOptions={{
                   color: "#05080c",
@@ -368,7 +376,7 @@ export default function RouteMap({
                 }}
               />
               <Polyline
-                positions={[segment.source_coords, segment.destination_coords]}
+                positions={corridorPositions(segment)}
                 eventHandlers={onSelectSegment ? { click: () => onSelectSegment(segment) } : undefined}
                 pathOptions={{
                   // The planned route wins the accent colour; everything else keeps its

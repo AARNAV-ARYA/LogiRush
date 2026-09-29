@@ -301,6 +301,12 @@ The frontend is not containerised — run it with `npm run dev` pointed at `http
 # Backend — unit + integration tests (includes tests/test_pan_india.py)
 cd routeOptimiserBackend && python -m pytest
 
+# Model evaluation report (synthetic holdout + CV; see PAN_INDIA_UPGRADE.md)
+cd routeOptimiserBackend && python evaluate_models.py
+
+# Optional, needs internet: real road shapes for every corridor (OpenStreetMap via OSRM)
+cd routeOptimiserBackend && python tools/fetch_corridor_geometry.py
+
 # Frontend — production build check
 cd routeOptimiserFrontend && npm run build
 

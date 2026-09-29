@@ -86,7 +86,9 @@ export default function IncidentLocationPreview({ latitude, longitude, corridor,
             relationship rather than take "0.6 km from RS003" on trust. */}
         {corridor?.source_coords && corridor?.destination_coords && (
           <Polyline
-            positions={[corridor.source_coords, corridor.destination_coords]}
+            positions={corridor.geometry?.length >= 2
+              ? corridor.geometry
+              : [corridor.source_coords, corridor.destination_coords]}
             interactive={false}
             pathOptions={{ color: "#38bdf8", weight: 4, opacity: 0.85 }}
           />

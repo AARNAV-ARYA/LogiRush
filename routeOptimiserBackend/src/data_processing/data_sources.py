@@ -58,6 +58,41 @@ def _india_file_meta(filename: str) -> dict:
     return meta
 
 
+def _geometry_source() -> dict:
+    """Corridor shapes: real OSM road polylines if the geometry file exists, else chords."""
+    from src.data_processing.geometry import GEOMETRY_FILE, load_geometry
+
+    loaded = load_geometry()
+    real = bool(loaded)
+    return {
+        "id": "corridor_geometry",
+        "name": "Corridor road geometry",
+        "trust": "sample" if real else "derived",
+        "summary": (
+            f"Real road polylines for {len(loaded)} corridors, routed on OpenStreetMap data "
+            "(OSRM). Used for the map, incident matching and weather sampling."
+            if real else
+            "Straight lines between towns — no road geometry file is installed. Run "
+            "tools/fetch_corridor_geometry.py to fetch real road shapes."
+        ),
+        "origin": ("corridor_geometry.geojson, fetched with OSRM from OpenStreetMap (ODbL)."
+                   if real else "Computed from the two endpoint coordinates."),
+        # Only point at the file when it exists — a manifest entry naming a missing file
+        # would be a claim the repository does not back.
+        "storage": (_india_file_meta(os.path.basename(GEOMETRY_FILE)) if real
+                    else "No geometry file installed; computed per request from the endpoints."),
+        "refresh": "When the fetch tool is re-run.",
+        "feeds": ["Corridor lines on the map", "Which corridor an incident is matched to",
+                  "Where live weather is sampled along each corridor"],
+        "upstream": {
+            "name": "NHAI / state PWD road centrelines",
+            "what": "Authoritative highway geometry",
+            "how": "Replace the GeoJSON with official centrelines keyed by segment id.",
+        },
+        "caveat": "OSRM returns the fastest road path between the towns, usually but not always the named highway.",
+    }
+
+
 def _pan_india_sources(weather_live: bool) -> list:
     """Provenance for everything the Pan-India upgrade added. Empty on the NER-only network."""
     try:
@@ -93,6 +128,7 @@ def _pan_india_sources(weather_live: bool) -> list:
             },
             "caveat": "Island territories and roads below the backbone are not covered.",
         },
+        _geometry_source(),
         {
             "id": "terrain_attributes",
             "name": "Terrain attributes per corridor",
@@ -526,7 +562,10 @@ def get_data_sources() -> dict:
             "caveat": (
                 "The only ML in the platform. It predicts future disruption probability and "
                 "nothing else — it does not score accessibility, choose routes, or verify "
-                "reports. Its probabilities are not validated forecasts."
+                "reports. Its probabilities are not validated forecasts. A held-out, "
+                "cross-validated evaluation exists (/api/india/model-evaluation), but on "
+                "synthetic labels only — it shows the pipeline learns its rules, not that it "
+                "predicts real disruption."
             ),
             "detail_endpoint": "/api/ner/model-info",
         },

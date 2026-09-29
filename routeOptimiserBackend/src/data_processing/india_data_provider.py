@@ -142,6 +142,7 @@ class IndiaNetworkProvider(MockNERDataProvider):
         self._terrain = None
         self._all_features = None
         self._snapshot_conditions = None
+        self._geometry = None
 
     # ------------------------------------------------------------------ locations
 
@@ -351,26 +352,51 @@ class IndiaNetworkProvider(MockNERDataProvider):
     def get_segment(self, segment_id: str):
         return next((s for s in self.get_road_segments() if s.id == segment_id), None)
 
+    # ------------------------------------------------------------------ geometry
+
+    def get_segment_geometry(self) -> dict:
+        """{segment_id: {"coords": [(lat, lon), ...], "source": "osrm" | "straight_line"}}.
+
+        Real road polylines where corridor_geometry.geojson provides them (see
+        tools/fetch_corridor_geometry.py), the straight chord between the towns otherwise.
+        """
+        if self._geometry is None:
+            from src.data_processing.geometry import load_geometry
+
+            loaded = load_geometry()
+            locations = {loc.id: loc for loc in self.get_locations()}
+            geometry = {}
+            for segment in IndiaNetworkProvider.get_road_segments(self):
+                if segment.id in loaded:
+                    geometry[segment.id] = {"coords": loaded[segment.id]["coords"],
+                                            "source": loaded[segment.id]["source"]}
+                    continue
+                a, b = locations.get(segment.source), locations.get(segment.destination)
+                if a and b:
+                    geometry[segment.id] = {"coords": [(a.latitude, a.longitude), (b.latitude, b.longitude)],
+                                            "source": "straight_line"}
+            self._geometry = geometry
+        return self._geometry
+
     # ------------------------------------------------------------------ sampling
 
     def sample_points(self) -> dict:
         """{segment_id: [(lat, lon), ...]} — where live weather is read for each corridor."""
         if getattr(self, "_sample_points", None) is not None:
             return self._sample_points
-        locations = {loc.id: loc for loc in self.get_locations()}
+        from src.data_processing.geometry import points_along
+
+        geometry = self.get_segment_geometry()
         points = {}
         # The base class's segments on purpose: geometry never depends on the weather, and
         # calling the live override from here would recurse into the weather fetch.
         for segment in IndiaNetworkProvider.get_road_segments(self):
-            a, b = locations.get(segment.source), locations.get(segment.destination)
-            if not a or not b:
+            if segment.id not in geometry:
                 continue
             fractions = SAMPLE_FRACTIONS_LONG if segment.distance_km > LONG_CORRIDOR_KM else SAMPLE_FRACTIONS_SHORT
-            points[segment.id] = [
-                (round(a.latitude + f * (b.latitude - a.latitude), 4),
-                 round(a.longitude + f * (b.longitude - a.longitude), 4))
-                for f in fractions
-            ]
+            # Along the real road when its geometry is known — the midpoint of a winding
+            # Himalayan road's chord can be tens of km from the road itself.
+            points[segment.id] = points_along(geometry[segment.id]["coords"], fractions)
         self._sample_points = points
         return points
 

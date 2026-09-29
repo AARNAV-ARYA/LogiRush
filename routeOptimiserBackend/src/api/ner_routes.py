@@ -656,9 +656,32 @@ def model_info():
                     "forecasts and must not be presented as such."
                 ),
             },
+            # Where the model runs on the Pan-India network: gated by terrain, so a flat or
+            # desert corridor never receives a landslide probability.
+            "applied_where": "Flood on every terrain with a flood mechanism; landslide only on "
+                             "hill/mountain terrain or gradients of at least 8 degrees.",
+            "evaluation_endpoint": "/api/india/model-evaluation",
         }), 200
     except Exception as e:
         logger.error(f"Error reading model info: {e}")
+        return _error(str(e), 500)
+
+
+@ner_bp.route("/model-evaluation", methods=["GET"])
+def model_evaluation():
+    """Held-out, cross-validated and out-of-range evaluation of the disaster model.
+
+    Served from data/processed/model_evaluation.json (regenerate with
+    `python evaluate_models.py`). Every figure is on SYNTHETIC labels and the response says
+    so at the top level, because this is the number most likely to be quoted out of context.
+    """
+    try:
+        from src.modeling.model_evaluation import load_or_evaluate
+
+        report = load_or_evaluate()
+        return jsonify({"status": "success", "validated_on_real_events": False, **report}), 200
+    except Exception as e:
+        logger.error(f"Error reading model evaluation: {e}")
         return _error(str(e), 500)
 
 
@@ -806,7 +829,7 @@ def _attribution(latitude: float, longitude: float) -> dict:
     from src.services.accessibility_service import INCIDENT_SNAP_RADIUS_KM
 
     segment_id, distance_km = _nearest_segment_id(latitude, longitude)
-    label, source_coords, destination_coords = None, None, None
+    label, source_coords, destination_coords, geometry = None, None, None, None
     if segment_id:
         match = next((s for s in _get_assessed() if s["id"] == segment_id), None)
         if match:
@@ -815,12 +838,14 @@ def _attribution(latitude: float, longitude: float) -> dict:
             # was matched to rather than asked to trust a distance in kilometres.
             source_coords = match["source_coords"]
             destination_coords = match["destination_coords"]
+            geometry = match.get("geometry")
 
     return {
         "segment_id": segment_id,
         "segment_label": label,
         "source_coords": source_coords,
         "destination_coords": destination_coords,
+        "geometry": geometry,
         "distance_km": distance_km,
         "on_network": segment_id is not None,
         "snap_radius_km": INCIDENT_SNAP_RADIUS_KM,

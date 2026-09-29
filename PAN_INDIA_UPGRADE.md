@@ -84,3 +84,21 @@ The sandbox could not install SQLAlchemy (the package index was blocked). Databa
 - No new required environment variables. The optional `LOGIRUSH_NETWORK=ner` restores the original network.
 - Live weather uses the same `NER_LIVE_WEATHER` switch. The first live fetch now makes about 4 concurrent Open-Meteo requests (around 400 sample points).
 - After deploying the backend, run `python seed_users.py` to add the regional demo verifiers to an existing database.
+
+## Follow-up: model evaluation and road geometry
+
+**Model evaluation** (`src/modeling/model_evaluation.py`, `evaluate_models.py`, `GET /api/india/model-evaluation`)
+- Stratified 75/25 held-out split and 5-fold cross-validation, using the deployed hyper-parameters. Reports ROC-AUC, Brier, log-loss, precision, recall and calibration, cross-checked against scikit-learn.
+- Every figure is compared with a no-skill forecast and with the *oracle*: the rule that generated the synthetic labels, which is the ceiling.
+- Results on synthetic data:
+  - Flood: AUC 0.856 held out (ceiling 0.862), CV 0.841 ± 0.015
+  - Landslide: AUC 0.782 held out (ceiling 0.793), CV 0.768 ± 0.012
+- Out of training range (Pan-India altitudes and rainfall), the flood model's AUC holds at 0.857, but it falls short of the oracle's 0.956.
+- `python evaluate_models.py --events real_events.csv` scores the deployed model on real labelled events. No such file exists yet, so **no real-world accuracy is claimed**.
+
+**Road geometry** (`src/data_processing/geometry.py`, `tools/fetch_corridor_geometry.py`)
+- If `data/raw/india/corridor_geometry.geojson` exists, corridors use real road polylines. They are then used to draw the map, match incident reports to the road itself (not the chord between towns), and sample live weather along the road.
+- The fetch tool builds that file from OSRM (OpenStreetMap). It could not run in the build sandbox, where the network was blocked, but it was tested against a local stand-in server. **Run it once on a machine with internet.** It also lists any corridor whose OSRM distance differs from the CSV by more than 25 %.
+- With no file, everything falls back to straight lines, and the provenance manifest says so.
+
+Tests: 13 new (6 evaluation, 7 geometry). The sandbox now has 209 passing; the same 43 database-dependent tests still need a real database.
