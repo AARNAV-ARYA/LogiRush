@@ -5,7 +5,15 @@ import RouteMap from "../components/RouteMap";
 import { AccessibilityBadge, Badge, ErrorState } from "../components/ui";
 import { IconChevron, IconLayers } from "../components/icons";
 import { useApi } from "../hooks/useApi";
-import { ACCESSIBILITY_BANDS, riskTextClass } from "../lib/accessibility";
+import {
+  ACCESSIBILITY_BANDS,
+  HAZARD_KEYS,
+  HAZARD_LABELS,
+  TERRAIN_LABELS,
+  closureLabel,
+  riskTextClass,
+  terrainLabel,
+} from "../lib/accessibility";
 import { formatKm, formatPercent } from "../lib/format";
 
 /*
@@ -75,6 +83,95 @@ const RampLegend = () => (
   </div>
 );
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/* Terrain + hazards for one corridor: what this terrain is scored on, and why. */
+const TerrainPanel = ({ segment }) => {
+  const terrain = segment.terrain;
+  if (!terrain) return null;
+  const hazards = Object.values(segment.hazards || {});
+  const applicable = hazards.filter((h) => h.applicable).sort((a, b) => (b.risk ?? -1) - (a.risk ?? -1));
+  const notApplicable = hazards.filter((h) => !h.applicable);
+  const contributions = Object.entries(segment.accessibility_breakdown?.contributions || {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+  return (
+    <>
+      <div>
+        <p className="label-micro mb-1.5">Terrain</p>
+        <p className="text-xs text-ink">
+          {terrainLabel(terrain.class)}
+          {terrain.secondary ? ` + ${terrainLabel(terrain.secondary).toLowerCase()}` : ""}
+        </p>
+        <p className="text-[11px] text-ink-muted mt-0.5">
+          {terrain.road_class_label} · ruling gradient {terrain.ruling_gradient_deg}° · up to{" "}
+          {Math.round(terrain.max_elevation_m)} m
+          {terrain.seasonal_closure ? ` · closes ${terrain.seasonal_closure}` : ""}
+          {terrain.travel_window ? ` · movement ${terrain.travel_window.replace("-", ":00–")}:00 only` : ""}
+        </p>
+        {terrain.notes && <p className="text-[11px] text-ink-muted mt-0.5">{terrain.notes}</p>}
+      </div>
+
+      {segment.closure && (
+        <div className="rounded-lg px-2.5 py-2 text-[11px]" style={{ backgroundColor: "var(--surface-sunken)" }}>
+          <p style={{ color: "var(--status-critical)" }} className="font-medium">
+            {closureLabel(segment.closure.type)}
+          </p>
+          <p className="text-ink-secondary mt-0.5">{segment.closure.reason}</p>
+        </div>
+      )}
+
+      <div>
+        <div className="flex items-baseline justify-between mb-1.5">
+          <p className="label-micro">Hazards for this terrain</p>
+          <span className={`text-[11px] tabular-nums ${riskTextClass(segment.multi_hazard_index)}`}>
+            index {Math.round(segment.multi_hazard_index)}
+          </span>
+        </div>
+        <ul className="space-y-1.5">
+          {applicable.map((h) => (
+            <li key={h.hazard}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[11px] text-ink-secondary">{HAZARD_LABELS[h.hazard]}</span>
+                <span className={`text-xs tabular-nums ${riskTextClass(h.risk)}`}>
+                  {h.risk === null ? "no data" : `${Math.round(h.risk)} · ${h.level}`}
+                </span>
+              </div>
+              {h.drivers?.[0] && <p className="text-[10px] text-ink-muted truncate">{h.drivers[0]}</p>}
+            </li>
+          ))}
+        </ul>
+        {notApplicable.length > 0 && (
+          <p className="text-[10px] text-ink-muted mt-1.5">
+            Not applicable here: {notApplicable.map((h) => HAZARD_LABELS[h.hazard].toLowerCase()).join(", ")}
+          </p>
+        )}
+      </div>
+
+      {contributions.length > 0 && (
+        <div>
+          <p className="label-micro mb-1">Score lost to</p>
+          <p className="text-[11px] text-ink-secondary">
+            {contributions.map(([k, v]) => `${HAZARD_LABELS[k] || k} −${v.toFixed(1)}`).join(" · ")}
+            {segment.accessibility_breakdown?.cap
+              ? ` · capped at ${segment.accessibility_breakdown.cap.ceiling} by ${HAZARD_LABELS[segment.accessibility_breakdown.cap.hazard]?.toLowerCase()}`
+              : ""}
+          </p>
+        </div>
+      )}
+
+      <p className="text-[10px] text-ink-muted">
+        Conditions: {segment.conditions?.source}
+        {segment.conditions?.source === "simulated" ? " (scenario — not live)" : ""} ·{" "}
+        {segment.conditions?.season}
+        {segment.prediction?.out_of_training_domain?.length
+          ? ` · model outside its training range (${segment.prediction.out_of_training_domain.join(", ").replace(/_/g, " ")})`
+          : ""}
+      </p>
+    </>
+  );
+};
+
 const SegmentDetail = ({ segment, onBack }) => {
   const prediction = segment.prediction;
   return (
@@ -109,10 +206,12 @@ const SegmentDetail = ({ segment, onBack }) => {
           )}
         </div>
 
+        <TerrainPanel segment={segment} />
+
         <div>
           <p className="label-micro mb-1.5">Risk inputs</p>
           <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-            {Object.entries(segment.risk_inputs).map(([key, value]) => (
+            {Object.entries(segment.risk_inputs).filter(([, v]) => v !== null && v !== undefined).map(([key, value]) => (
               <div key={key} className="flex items-baseline justify-between gap-2">
                 <span className="text-[11px] text-ink-muted capitalize truncate">
                   {key.replace(/_/g, " ")}
@@ -190,9 +289,24 @@ const CorridorRow = ({ segment, active, onSelect }) => (
 );
 
 const AccessibilityMap = () => {
-  const segmentsQuery = useApi(() => api.getSegments(), { pollMs: 60000 });
+  // Conditions the network is assessed under. Empty scenario = live/snapshot; month decides
+  // seasonal closures (Zojila in January). A scenario is SIMULATED and bannered as such.
+  const [scenario, setScenario] = useState("");
+  const [month, setMonth] = useState("");
+  const [colorBy, setColorBy] = useState("accessibility");
+  const [regionFilter, setRegionFilter] = useState("all");
+  const [terrainFilter, setTerrainFilter] = useState("all");
+
+  const segmentsQuery = useApi(() => api.getSegments({ scenario, month }), {
+    pollMs: 60000,
+    deps: [scenario, month],
+  });
   const locationsQuery = useApi(() => api.getLocations());
   const incidentsQuery = useApi(() => api.getIncidents(100).catch(() => ({ incidents: [] })));
+  const scenariosQuery = useApi(() => api.getScenarios().catch(() => ({ scenarios: [] })));
+  const scenarios = scenariosQuery.data?.scenarios || [];
+  const simulated = Boolean(segmentsQuery.data?.simulated);
+  const conditions = segmentsQuery.data?.conditions;
 
   const [stateFilter, setStateFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -209,17 +323,24 @@ const AccessibilityMap = () => {
     () => ["all", ...Array.from(new Set(locations.map((l) => l.state))).sort()],
     [locations]
   );
+  const regions = useMemo(
+    () => ["all", ...Array.from(new Set(segments.map((s) => s.region).filter(Boolean))).sort()],
+    [segments]
+  );
+  const hasTerrain = segments.some((s) => s.terrain);
 
   const visible = useMemo(
     () =>
       segments.filter((s) => {
-        if (stateFilter !== "all" && s.source_state !== stateFilter) return false;
+        if (stateFilter !== "all" && s.source_state !== stateFilter && s.destination_state !== stateFilter) return false;
+        if (regionFilter !== "all" && s.region !== regionFilter) return false;
+        if (terrainFilter !== "all" && s.terrain?.class !== terrainFilter && s.terrain?.secondary !== terrainFilter) return false;
         if (categoryFilter !== "all" && s.accessibility_category !== categoryFilter) return false;
         if (statusFilter === "open" && (s.impassable || s.road_status !== "Open")) return false;
         if (statusFilter === "problem" && !s.impassable && s.road_status === "Open") return false;
         return true;
       }),
-    [segments, stateFilter, categoryFilter, statusFilter]
+    [segments, stateFilter, regionFilter, terrainFilter, categoryFilter, statusFilter]
   );
 
   const problems = visible.filter((s) => s.impassable || s.road_status !== "Open").length;
@@ -244,10 +365,20 @@ const AccessibilityMap = () => {
             onSelectSegment={openDetail}
             selectedSegmentId={selected?.id}
             fitToHighlight={false}
-            showLegend={false}
+            showLegend={colorBy !== "accessibility"}
+            colorBy={colorBy}
           />
         )}
       </div>
+
+      {simulated && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[600] panel-glass px-3 py-1.5 max-w-[90vw]"
+          role="status" data-testid="simulation-banner">
+          <p className="text-[11px] font-semibold tracking-wide" style={{ color: "var(--status-warning)" }}>
+            SIMULATION — {scenarios.find((x) => x.id === scenario)?.label || scenario}. Not live conditions.
+          </p>
+        </div>
+      )}
 
       {segmentsQuery.error && (
         <div className="absolute top-3 left-3 right-3 md:left-auto md:w-[26rem] z-[600]">
@@ -305,6 +436,60 @@ const AccessibilityMap = () => {
           <>
             {/* filters */}
             <div className="px-3 pb-3 space-y-2.5 border-b border-white/10 shrink-0">
+              {hasTerrain && (
+                <div className="grid grid-cols-2 gap-2">
+                  <label>
+                    <span className="field-label">Region</span>
+                    <select className="field !mt-1 !py-1.5 !text-xs" value={regionFilter}
+                      onChange={(e) => setRegionFilter(e.target.value)}>
+                      {regions.map((r) => (
+                        <option key={r} value={r}>{r === "all" ? "All India" : r}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span className="field-label">Terrain</span>
+                    <select className="field !mt-1 !py-1.5 !text-xs" value={terrainFilter}
+                      onChange={(e) => setTerrainFilter(e.target.value)} data-testid="terrain-filter">
+                      <option value="all">All terrains</option>
+                      {Object.entries(TERRAIN_LABELS).map(([k, label]) => (
+                        <option key={k} value={k}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span className="field-label">Colour by</span>
+                    <select className="field !mt-1 !py-1.5 !text-xs" value={colorBy}
+                      onChange={(e) => setColorBy(e.target.value)} data-testid="color-by">
+                      <option value="accessibility">Accessibility</option>
+                      <option value="multi_hazard">Multi-hazard index</option>
+                      {HAZARD_KEYS.map((h) => (
+                        <option key={h} value={h}>{HAZARD_LABELS[h]}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span className="field-label">Month</span>
+                    <select className="field !mt-1 !py-1.5 !text-xs" value={month}
+                      onChange={(e) => setMonth(e.target.value)}>
+                      <option value="">This month</option>
+                      {MONTHS.map((m, i) => (
+                        <option key={m} value={String(i + 1)}>{m}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="col-span-2">
+                    <span className="field-label">Scenario</span>
+                    <select className="field !mt-1 !py-1.5 !text-xs" value={scenario}
+                      onChange={(e) => setScenario(e.target.value)} data-testid="scenario-select">
+                      <option value="">Live conditions</option>
+                      {scenarios.map((sc) => (
+                        <option key={sc.id} value={sc.id}>Simulate: {sc.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <label>
                   <span className="field-label">State</span>
@@ -363,9 +548,11 @@ const AccessibilityMap = () => {
               )}
             </div>
 
-            <div className="px-3 py-2.5 border-t border-white/10 shrink-0">
-              <RampLegend />
-            </div>
+            {colorBy === "accessibility" && (
+              <div className="px-3 py-2.5 border-t border-white/10 shrink-0">
+                <RampLegend />
+              </div>
+            )}
           </>
         )}
         </div>
@@ -375,8 +562,13 @@ const AccessibilityMap = () => {
       <div className="hidden md:block absolute right-3 top-3 z-[450] panel-glass px-3 py-2 max-w-[15rem]">
         <p className="flex items-center gap-1.5 text-[11px] text-ink-secondary leading-snug">
           <IconLayers width="13" height="13" className="shrink-0" />
-          Synthetic risk data · model estimates, not official forecasts
+          Sample terrain &amp; risk data · model estimates, not official forecasts
         </p>
+        {conditions && (
+          <p className="text-[10px] text-ink-muted mt-1 leading-snug">
+            Weather: {simulated ? "simulated scenario" : conditions.live ? "live (Open-Meteo, not IMD)" : "illustrative snapshot"}
+          </p>
+        )}
       </div>
     </div>
   );

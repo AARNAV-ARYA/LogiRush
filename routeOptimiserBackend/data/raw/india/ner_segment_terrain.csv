@@ -1,0 +1,37 @@
+# SAMPLE DATA — terrain attributes for the 32 original North Eastern corridors (RS001-RS032).
+# Their risk columns stay in data/raw/ner/ner_road_segments.csv, untouched. Same column
+# meanings and the same caveats as india_road_segments.csv: rough physical approximations,
+# not DEM or hydrography output.
+segment_id,road_class,terrain_class,secondary_terrain,ruling_gradient_deg,max_elevation_m,river_proximity_km,coast_distance_km,seasonal_closure_months,travel_window,notes
+RS001,hill_road,hill,,25,1650,0.2,999,,,Teesta valley; NH10 landslide corridor
+RS002,hill_road,hill,,22,1700,2,999,,,
+RS003,nh_4lane,floodplain,plains,2,120,2,999,,,Brahmaputra north-bank floodplain
+RS004,nh_2lane,floodplain,,2,90,2,999,,,
+RS005,nh_4lane,floodplain,,1,70,3,999,,,
+RS006,nh_2lane,floodplain,forest_remote,1,90,2,999,,,Skirts Kaziranga; animal-corridor speed limits
+RS007,nh_2lane,floodplain,,1,100,3,999,,,
+RS008,nh_2lane,floodplain,,2,95,1,999,,,
+RS009,hill_road,hill,floodplain,15,400,2,999,,,
+RS010,state_highway,hill,,8,350,5,999,,,
+RS011,nh_2lane,hill,forest_remote,18,700,1,999,,,Siang valley
+RS012,nh_4lane,hill,,18,1500,5,999,,,Guwahati-Shillong
+RS013,hill_road,hill,,15,1450,5,999,,,
+RS014,hill_road,hill,forest_remote,15,1400,5,999,,,
+RS015,hill_road,hill,forest_remote,18,1000,5,999,,,
+RS016,hill_road,hill,forest_remote,22,1100,2,999,,,
+RS017,hill_road,hill,,22,1300,5,999,,,
+RS018,nh_2lane,floodplain,hill,8,200,1,999,,,Barak valley
+RS019,hill_road,hill,,25,1300,2,999,,,
+RS020,nh_2lane,hill,plains,8,900,5,999,,,Imphal valley
+RS021,nh_4lane,floodplain,plains,3,200,3,999,,,
+RS022,hill_road,hill,,25,1500,5,999,,,NH29 Dimapur-Kohima slide zone
+RS023,hill_road,hill,,22,1600,5,999,,,
+RS024,nh_2lane,plains,forest_remote,4,60,5,999,,,
+RS025,nh_2lane,hill,forest_remote,10,400,5,999,,,Atharamura hills
+RS026,nh_2lane,hill,floodplain,8,150,2,999,,,
+RS027,hill_road,hill,,18,1300,5,999,,,
+RS028,nh_2lane,floodplain,plains,2,140,3,999,,,
+RS029,hill_road,hill,forest_remote,22,1400,5,999,,,
+RS030,nh_2lane,floodplain,hill,6,350,2,999,,,
+RS031,nh_2lane,plains,forest_remote,4,150,5,999,,,
+RS032,hill_road,hill,forest_remote,15,800,5,999,,,Barail range via Haflong

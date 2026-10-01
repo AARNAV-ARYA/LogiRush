@@ -8,7 +8,7 @@ const Home = () => {
           LogiRush
         </h1>
         <p className="text-xl text-ink-secondary max-w-3xl mx-auto">
-          NER Smart Logistics &amp; Accessibility Intelligence Platform
+          Pan-India Terrain-Aware, Multi-Hazard Logistics Intelligence
         </p>
       </div>
 
@@ -18,8 +18,8 @@ const Home = () => {
             Disaster-Resilient Routing
           </h2>
           <p className="text-ink-secondary mb-6">
-            Advanced route optimization for the North Eastern Region with real-time disaster
-            prediction and accessibility scoring.
+            Route comparison across India&apos;s mountains, floodplains, coasts, deserts and plains,
+            with each corridor scored for the hazards of its own terrain.
           </p>
           <Link
             to="/shipment-planner"

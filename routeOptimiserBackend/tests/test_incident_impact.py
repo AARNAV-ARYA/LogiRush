@@ -129,13 +129,15 @@ def test_a_point_on_the_network_is_attributed_with_its_distance():
     assert distance_km is not None and distance_km < 5
 
 
-def test_a_point_far_from_the_network_is_attributed_to_nothing():
+def test_a_point_far_from_the_ner_network_is_attributed_to_nothing():
+    """On the original North East network, the rest of India is off-network."""
+    from src.data_processing.ner_data_provider import MockNERDataProvider
     from src.services.accessibility_service import (
         INCIDENT_SNAP_RADIUS_KM,
         AccessibilityService,
     )
 
-    service = AccessibilityService()
+    service = AccessibilityService(provider=MockNERDataProvider())
     for name, lat, lon in [
         ("Mumbai", 19.0760, 72.8777),
         ("Delhi", 28.6139, 77.2090),
@@ -149,6 +151,33 @@ def test_a_point_far_from_the_network_is_attributed_to_nothing():
         assert distance_km > INCIDENT_SNAP_RADIUS_KM
 
 
+def test_a_point_far_from_the_pan_india_network_is_attributed_to_nothing():
+    """Pan-India: the mainland is on-network now, but the sea and the islands are not.
+
+    Mumbai and Delhi used to be the examples of "off-network"; on the national backbone they
+    are corridor endpoints, and the snap radius still has to refuse anything genuinely far.
+    """
+    from src.services.accessibility_service import (
+        INCIDENT_SNAP_RADIUS_KM,
+        AccessibilityService,
+    )
+
+    service = AccessibilityService()
+    for name, lat, lon in [
+        ("Arabian Sea", 15.0, 66.0),
+        ("Bay of Bengal", 15.0, 88.5),
+        ("Port Blair (no road link)", 11.6234, 92.7265),
+        ("Kavaratti, Lakshadweep", 10.5667, 72.6417),
+    ]:
+        segment_id, distance_km = service.nearest_segment(lat, lon)
+        assert segment_id is None, f"{name} must not be attributed to a corridor"
+        assert distance_km > INCIDENT_SNAP_RADIUS_KM
+
+    # And the national cities that used to be off-network now snap to their own corridors.
+    segment_id, distance_km = service.nearest_segment(19.0760, 72.8777)
+    assert segment_id is not None and segment_id.startswith("IN")
+
+
 def test_reporting_off_network_does_not_claim_a_corridor(db_session_module):
     """End to end: an off-network report is stored, but attributed to nothing."""
     import uuid as _uuid
@@ -159,15 +188,17 @@ def test_reporting_off_network_does_not_claim_a_corridor(db_session_module):
         "client_uuid": str(_uuid.uuid4()),
         "type": "landslide",
         "severity": 5,
-        "latitude": 19.0760,
-        "longitude": 72.8777,
-        "description": "Filed from Mumbai by mistake",
+        # Port Blair: on no road network the platform models (the islands have no road
+        # link to the mainland). Mumbai served this purpose before the Pan-India backbone.
+        "latitude": 11.6234,
+        "longitude": 92.7265,
+        "description": "Filed from the Andamans by mistake",
     })
     assert error is None and created is True
     assert stored["segment_id"] is None
     assert stored["segment_distance_km"] > 1000
     # And its own coordinates are preserved exactly, so the map still shows where it is.
-    assert stored["latitude"] == 19.0760 and stored["longitude"] == 72.8777
+    assert stored["latitude"] == 11.6234 and stored["longitude"] == 92.7265
 
 
 def test_a_distant_attribution_cannot_close_a_corridor(db_session_module):

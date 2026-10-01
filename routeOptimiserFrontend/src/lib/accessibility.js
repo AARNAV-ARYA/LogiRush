@@ -101,7 +101,93 @@ export const INCIDENT_TYPE_LABELS = {
   bridge_damage: "Bridge Damage",
   accident: "Accident",
   other: "Other",
+  // Pan-India additions — mirrors src/modeling/incident_types.py on the backend.
+  waterlogging: "Waterlogging",
+  snow_blockage: "Snow Blockage",
+  avalanche: "Avalanche",
+  cyclone_damage: "Cyclone / Storm Debris",
+  dense_fog: "Dense Fog",
+  heat_damage: "Heat Damage",
 };
+
+/** Report types whose verified severity-5 report closes a road (two-person rule applies). */
+export const BLOCKING_INCIDENT_TYPES = [
+  "landslide", "flood", "road_block", "bridge_damage",
+  "waterlogging", "snow_blockage", "avalanche", "cyclone_damage",
+];
+
+// ---------------------------------------------------------------- Pan-India terrain layer
+
+export const HAZARD_LABELS = {
+  rain: "Heavy rain",
+  landslide: "Landslide",
+  flood: "Flood",
+  heat: "Heat",
+  wind: "Cyclone / wind",
+  snow: "Snow / ice",
+  fog: "Fog",
+  incident: "Incidents",
+  delay: "Delay",
+};
+
+export const HAZARD_KEYS = ["flood", "landslide", "heat", "wind", "snow", "fog", "rain"];
+
+export const TERRAIN_LABELS = {
+  mountain: "Mountain / high altitude",
+  hill: "Hill / ghat",
+  floodplain: "Floodplain",
+  coastal: "Coastal",
+  arid: "Arid / semi-arid",
+  plains: "Plains",
+  plateau: "Plateau",
+  forest_remote: "Forested / remote",
+};
+
+export function terrainLabel(key) {
+  return TERRAIN_LABELS[key] || key || "Unknown";
+}
+
+const CLOSURE_LABELS = {
+  reported_status: "Reported closure",
+  verified_incident: "Verified incident",
+  seasonal_typical: "Seasonal closure (typical dates)",
+  hazard_advisory: "Hazard advisory (estimate)",
+};
+
+/** Closures are typed so an estimate is never shown as if it were a reported closure. */
+export function closureLabel(type) {
+  return CLOSURE_LABELS[type] || type;
+}
+
+/**
+ * Risk bands for hazard colouring. Same bronze ramp as `riskColor`, same stroke/dash
+ * secondary encoding as the accessibility bands — read from the "higher is worse" end.
+ */
+export const RISK_BANDS = [
+  { label: "Severe",   range: "75–100", min: 75, color: "#ffcd93", weight: 5, dash: null },
+  { label: "High",     range: "55–75",  min: 55, color: "#f0a24c", weight: 4, dash: null },
+  { label: "Elevated", range: "35–55",  min: 35, color: "#c9782b", weight: 3, dash: "10 5" },
+  { label: "Low",      range: "0–35",   min: 0,  color: "#5a4c3c", weight: 3, dash: null },
+];
+
+/** The value a corridor is coloured by: a hazard's risk, or the multi-hazard index. */
+export function segmentRisk(segment, key) {
+  if (key === "multi_hazard") return segment.multi_hazard_index ?? null;
+  const hazard = segment.hazards?.[key];
+  if (!hazard || !hazard.applicable) return null;
+  return hazard.risk;
+}
+
+export function corridorRiskStyle(risk, impassable = false) {
+  if (impassable) {
+    return { color: IMPASSABLE_STYLE.color, weight: IMPASSABLE_STYLE.weight, dashArray: IMPASSABLE_STYLE.dash };
+  }
+  if (risk === null || risk === undefined) {
+    return { color: "#4b5b6b", weight: 2, dashArray: "2 4" };
+  }
+  const band = RISK_BANDS.find((b) => risk >= b.min) || RISK_BANDS[RISK_BANDS.length - 1];
+  return { color: band.color, weight: band.weight, dashArray: band.dash };
+}
 
 export function incidentLabel(type) {
   return INCIDENT_TYPE_LABELS[type] || type;

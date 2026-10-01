@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MCP server exposing the NER Smart Logistics routing engine.
+"""MCP server exposing the LogiRush routing engine (Pan-India; originally NER Smart Logistics).
 
 Written against the Python standard library only, deliberately. A plugin whose first
 instruction is "pip install something" is a plugin most people never get working, and the
@@ -88,7 +88,7 @@ def _fmt_route(route, index=None):
 
 
 DISCLAIMER = (
-    "\n\nSource: NER Smart Logistics. Road network is sample data; risk figures and disruption "
+    "\n\nSource: LogiRush. Road network and terrain attributes are sample data; risk figures and disruption "
     "probabilities are model estimates from synthetic training data, not official IMD/GSI/CWC "
     "forecasts. Do not present these as government figures."
 )
@@ -104,6 +104,11 @@ def tool_plan_route(args):
         "urgency": args.get("urgency", "normal"),
         "weight_kg": args.get("weight_kg", 1000),
     }
+    # Pan-India options: departure date (seasonal closures, night-halt aware ETA) and a
+    # SIMULATED scenario. Only sent when given, so older backends are unaffected.
+    for optional in ("travel_date", "scenario"):
+        if args.get(optional):
+            payload[optional] = args[optional]
     result = _call_api("/api/ner/plan-route", "POST", payload)
     routes = result.get("routes") or []
     if not routes:
@@ -120,6 +125,13 @@ def tool_plan_route(args):
     out += [_fmt_route(route, i) for i, route in enumerate(routes[:3])]
     if result.get("recommended_transport"):
         out.append(f"\nRecommended transport mode: {result['recommended_transport']}")
+    if result.get("simulated"):
+        out.insert(0, "SIMULATED SCENARIO — not live conditions: "
+                      + ((result.get("scenario") or {}).get("label") or ""))
+    schedule = (routes[0] or {}).get("schedule")
+    if schedule and schedule.get("halts"):
+        out.append(f"Schedule: {schedule['driving_hours']} h driving + {schedule['halt_hours']} h "
+                   f"of routine halts (night restrictions); arrival {schedule['arrival']}.")
     return "\n\n".join(out) + DISCLAIMER
 
 
@@ -267,8 +279,8 @@ TOOLS = [
     {
         "name": "plan_route",
         "description": (
-            "Plan a freight consignment across India's North Eastern Region using risk-aware "
-            "multi-objective routing. Balances time, cost, corridor accessibility, disruption "
+            "Plan a freight consignment across India (a national backbone plus the detailed "
+            "North Eastern network) using terrain-aware, multi-hazard, multi-objective routing. Balances time, cost, corridor accessibility, disruption "
             "risk and reliability, reweighted by cargo type and urgency. Verified severe "
             "blockages are removed from the graph entirely, so a returned route is one that "
             "is currently passable. Returns the recommended route plus alternatives, each "
@@ -282,11 +294,13 @@ TOOLS = [
                 "destination": {"type": "string", "description": "Location id, e.g. LOC007"},
                 "cargo_type": {
                     "type": "string",
-                    "enum": ["general", "relief", "medicine", "perishable", "fuel", "construction"],
+                    "enum": ["general", "relief", "medicine", "perishable", "food"],
                     "description": "Reweights the objectives; call cargo_profiles to see how.",
                 },
                 "urgency": {"type": "string", "enum": ["low", "normal", "high", "critical"]},
                 "weight_kg": {"type": "number", "description": "Consignment weight; sizes the fleet and steps the cost."},
+                "travel_date": {"type": "string", "description": "Departure date YYYY-MM-DD (IST). Decides seasonal pass closures and the night-halt aware ETA."},
+                "scenario": {"type": "string", "description": "Optional SIMULATED disruption id (e.g. cyclone_odisha, bihar_floods, igp_fog). Output is labelled simulated."},
             },
             "required": ["origin", "destination"],
         },
@@ -294,8 +308,8 @@ TOOLS = [
     {
         "name": "search_places",
         "description": (
-            "Find a place by name across the eight North Eastern states and the Siliguri "
-            "corridor. Returns corridor network nodes (usable directly as a route origin or "
+            "Find a place by name across India (the national backbone and the North Eastern "
+            "network). Returns corridor network nodes (usable directly as a route origin or "
             "destination, with a location id) and real nearby places from OpenStreetMap "
             "(which must be snapped to a node first). Use this to turn a town, market or "
             "station name into something plan_route accepts."

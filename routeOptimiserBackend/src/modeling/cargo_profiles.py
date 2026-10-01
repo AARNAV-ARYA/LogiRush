@@ -59,6 +59,19 @@ CARGO_PROFILES = {
 
 DEFAULT_CARGO_TYPE = "general"
 
+# How much more a cargo suffers from each hazard than general freight does (1.0 = same).
+# Applied by the router to the multi-hazard disruption index on Pan-India corridors. Heat is
+# the case that matters: a heatwave that merely slows a load of cement spoils vaccines and
+# vegetables, so medicine and perishables should route around it and cement need not.
+# Deterministic policy, like the weights above.
+HAZARD_SENSITIVITY = {
+    "medicine": {"heat": 1.4, "flood": 1.1},      # cold chain; water ingress
+    "perishable": {"heat": 1.6, "fog": 1.2},      # spoilage; fog delays compound spoilage
+    "food": {"heat": 1.15, "flood": 1.1},
+    "relief": {},                                 # moves during disruption by design
+    "general": {},
+}
+
 # Urgency multiplies the time weight, then everything is re-normalised to sum to 1.
 URGENCY_TIME_MULTIPLIER = {
     "low": 0.6,
@@ -97,6 +110,12 @@ def get_weights(cargo_type: str, urgency: str = DEFAULT_URGENCY) -> dict:
     if total <= 0:
         return {obj: 1.0 / len(OBJECTIVES) for obj in OBJECTIVES}
     return {obj: round(weights.get(obj, 0.0) / total, 4) for obj in OBJECTIVES}
+
+
+def get_hazard_sensitivity(cargo_type: str) -> dict:
+    """Per-hazard sensitivity multipliers for a cargo type ({} = neutral)."""
+    key = (cargo_type or DEFAULT_CARGO_TYPE).strip().lower()
+    return dict(HAZARD_SENSITIVITY.get(key, {}))
 
 
 def describe_priority_order(cargo_type: str, urgency: str = DEFAULT_URGENCY) -> list:

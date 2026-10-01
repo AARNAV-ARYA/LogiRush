@@ -19,7 +19,7 @@ import "leaflet/dist/leaflet.css";
 import { STATUS_COLORS } from "../lib/accessibility";
 import { LABELS, TILES, TILE_THEME } from "../lib/mapTiles";
 
-const NER_CENTER = [25.9, 92.6];
+const INDIA_CENTER = [22.8, 81.0];
 
 /** Keep the view on the point when it is changed from outside (typing, or "use my location"). */
 function Recenter({ position }) {
@@ -53,8 +53,8 @@ export default function IncidentLocationPreview({ latitude, longitude, corridor,
       data-testid="incident-location-preview"
     >
       <MapContainer
-        center={position || NER_CENTER}
-        zoom={position ? 9 : 6}
+        center={position || INDIA_CENTER}
+        zoom={position ? 9 : 4}
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={false}
         zoomControl={false}
@@ -83,13 +83,37 @@ export default function IncidentLocationPreview({ latitude, longitude, corridor,
         <Recenter position={position} />
 
         {/* The corridor the report will be filed against, drawn so the reporter can see the
-            relationship rather than take "0.6 km from RS003" on trust. */}
+            relationship rather than take "0.6 km from RS003" on trust. Rendered as a thin
+            dashed reference line so it reads as context, not a bold feature cutting across
+            unrelated terrain. */}
         {corridor?.source_coords && corridor?.destination_coords && (
-          <Polyline
-            positions={[corridor.source_coords, corridor.destination_coords]}
-            interactive={false}
-            pathOptions={{ color: "#38bdf8", weight: 4, opacity: 0.85 }}
-          />
+          <>
+            {/* Faint dark halo so the dashes stay readable on both light and dark basemaps */}
+            <Polyline
+              positions={
+                corridor.geometry?.length >= 2
+                  ? corridor.geometry
+                  : [corridor.source_coords, corridor.destination_coords]
+              }
+              interactive={false}
+              pathOptions={{ color: "#000", weight: 5, opacity: 0.1 }}
+            />
+            {/* The visible dashed line — softer blue, thin, clearly a reference not a road */}
+            <Polyline
+              positions={
+                corridor.geometry?.length >= 2
+                  ? corridor.geometry
+                  : [corridor.source_coords, corridor.destination_coords]
+              }
+              interactive={false}
+              pathOptions={{
+                color: "#93c5fd",
+                weight: 2,
+                opacity: 0.65,
+                dashArray: "6 5",
+              }}
+            />
+          </>
         )}
 
         {position && (
@@ -120,13 +144,24 @@ export default function IncidentLocationPreview({ latitude, longitude, corridor,
         )}
       </MapContainer>
 
-      {!position && (
-        <div className="absolute inset-x-0 bottom-0 z-[400] px-3 py-2 panel-glass rounded-none">
+      {/* Bottom hint bar — explains what the dashed line is when a corridor is matched,
+          or prompts the reporter to place a pin when nothing is set yet. */}
+      {position && corridor?.source_coords ? (
+        <div className="absolute inset-x-0 bottom-0 z-[400] px-3 py-2 panel-glass rounded-none flex items-center gap-2">
+          <svg width="22" height="8" aria-hidden="true" style={{ flexShrink: 0 }}>
+            <line x1="0" y1="4" x2="22" y2="4" stroke="#93c5fd" strokeWidth="2" strokeDasharray="5 4" />
+          </svg>
           <p className="text-[11px] text-ink-secondary">
-            Tap the map to drop a pin, type the coordinates, or use “Use my location”.
+            Nearest corridor this report will be matched to
           </p>
         </div>
-      )}
+      ) : !position ? (
+        <div className="absolute inset-x-0 bottom-0 z-[400] px-3 py-2 panel-glass rounded-none">
+          <p className="text-[11px] text-ink-secondary">
+            Tap the map to drop a pin, type the coordinates, or use &ldquo;Use my location&rdquo;.
+          </p>
+        </div>
+      ) : null}
 
       {tilesFailed && (
         <div className="absolute inset-x-2 top-2 z-[400] panel-glass px-2.5 py-1.5">

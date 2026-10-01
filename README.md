@@ -1,11 +1,11 @@
 <div align="center">
 
-<img src="https://img.shields.io/badge/LogiRush-NER%20Logistics%20Platform-0f172a?style=for-the-badge&logoColor=white" alt="LogiRush" />
+<img src="https://img.shields.io/badge/LogiRush-Pan--India%20Logistics%20Intelligence-0f172a?style=for-the-badge&logoColor=white" alt="LogiRush" />
 
-# LogiRush — NER Smart Logistics & Accessibility Intelligence Platform
+# LogiRush — Pan-India Terrain-Aware, Multi-Hazard Logistics Intelligence
 
-**Disaster-resilient logistics for India's North Eastern Region**  
-Risk-aware routing · Live weather · ML disaster prediction · Community incident reporting
+**From terrain intelligence to resilient routes — across India's mountains, floodplains, coasts, deserts and plains**  
+Terrain-aware routing · Multi-hazard assessment · Live weather · Community incident reporting
 
 [![CI](https://github.com/AARNAV-ARYA/LogiRush/actions/workflows/ci.yml/badge.svg)](https://github.com/AARNAV-ARYA/LogiRush/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org)
@@ -57,7 +57,17 @@ Risk-aware routing · Live weather · ML disaster prediction · Community incide
 
 ## Overview
 
-LogiRush is built for **Smart India Hackathon 2026** — a full-stack platform addressing disaster-resilient logistics across the eight states of India's North Eastern Region (NER). Landslides, floods, and extreme rainfall routinely disrupt road corridors here; LogiRush gives control rooms and field teams the shared situational awareness to respond.
+LogiRush is built for **Smart India Hackathon 2026**. It is a full-stack platform for disaster-resilient logistics that began in India's North Eastern Region (NER) and now covers a **Pan-India demonstration backbone**: 126 towns and 178 corridors, about 36,000 km across 32 states and UTs. Each corridor is scored for **the hazards of its own terrain**:
+
+- snow and landslides on the Himalayan passes
+- flooding on the Bihar and Assam floodplains
+- cyclones on the east coast
+- heat and dust storms on the Thar
+- fog on the Gangetic plain
+
+The North East remains the most detailed part of the network.
+
+> **Scope.** This is a selected, connected backbone built on sample terrain data. It does not claim complete national coverage or validated hazard prediction. See [TERRAIN_ENGINE.md](TERRAIN_ENGINE.md) for the methodology and [PAN_INDIA_UPGRADE.md](PAN_INDIA_UPGRADE.md) for what changed and what was tested.
 
 The core insight is simple: **a report filed on a phone must immediately reach the review queue the control room is watching**. That entire link is one matching URL in each client.
 
@@ -99,7 +109,9 @@ Open-Meteo (live rainfall)
         │              Disaster Prediction           │
         │               (Random Forest)              │
         ▼                      ▼                    ▼
-   NER Routes API ◄──────────────────────────────────
+   /api/ner/* = /api/india/* ◄──────────────────────────
+   (Pan-India: terrain profiles + multi-hazard engine sit between
+    the weather provider and the accessibility engine)
         │
         ├──► React Console  (dashboard · map · planner · review queue)
         └──► React Native   (GPS report · photo · offline queue)
@@ -108,6 +120,14 @@ Open-Meteo (live rainfall)
 ---
 
 ## Features
+
+### Terrain Intelligence (Pan-India)
+- **Eight terrain profiles**: mountain, hill, floodplain, coastal, arid, plains, plateau and forested/remote. Each has its own hazard weights, relevance, IMD-based heat thresholds and flood mechanism. Hazards that cannot occur on a terrain are *not applicable*, not zero.
+- **Seven hazards**: rain (IMD rainfall bands), flood (riverine / flash / coastal surge), landslide (Random Forest, gated to slopes), heat (IMD heatwave criteria), cyclone/wind (IMD cyclone scale), snow, and fog (IMD visibility classes). They combine into a terrain-weighted accessibility score with a critical-hazard cap, and into a multi-hazard disruption index.
+- **Seasons and schedules**: typical winter closures (Zojila, Manali–Leh) apply for the travel date. The ETA includes the night halts forced by routine restrictions (Bandipur night ban, daylight-only passes).
+- **Typed closures**: reported · verified incident · seasonal (typical) · hazard advisory (estimate). An estimate is never shown as a reported closure.
+- **Simulated scenarios**: cyclone (Odisha), north-west heatwave, Himalayan snowstorm, Bihar floods, Gangetic fog, Western Ghats monsoon and North East landslides. Every result is labelled SIMULATION.
+- **Baseline comparison**: every plan shows the terrain-blind shortest route beside the recommendation.
 
 ### Routing & Intelligence
 - **Risk-aware A\* routing** — multi-objective with Pareto pruning over the NER corridor graph, weighted by cargo profile (medicines, food, fuel, general) and urgency
@@ -141,9 +161,11 @@ LogiRush/
 │   │   ├── db/                  # SQLAlchemy models, session, roster, schema sync
 │   │   ├── modeling/            # Accessibility engine, cargo profiles, RF prediction
 │   │   ├── optimization/        # Multi-objective A*, NER router
+│   │   ├── terrain/             # Pan-India terrain profiles, hazards, speed, seasons, scenarios
 │   │   └── services/            # Service layer
 │   ├── data/
 │   │   ├── raw/ner/             # NER locations, road segments, segment features (CSV)
+│   │   ├── raw/india/           # Pan-India nodes, corridors + terrain attributes (CSV)
 │   │   └── processed/models/    # Persisted Random Forest models (.joblib)
 │   ├── main.py                  # Entry point
 │   ├── requirements.txt
@@ -257,6 +279,7 @@ The frontend is not containerised — run it with `npm run dev` pointed at `http
 | `WEATHER_CACHE_TTL_S` | No | `900` | Rainfall cache window (seconds) |
 | `WEATHER_TIMEOUT_S` | No | `4.0` | Rainfall fetch timeout before fallback |
 | `FLASK_DEBUG` | No | off | Set `1` for development reloader |
+| `LOGIRUSH_NETWORK` | No | `india` | Set `ner` to serve the original North-East-only network exactly as before |
 
 ### Console (`routeOptimiserFrontend/.env`)
 
@@ -275,8 +298,14 @@ The frontend is not containerised — run it with `npm run dev` pointed at `http
 ## Testing
 
 ```bash
-# Backend — 165 unit + integration tests
+# Backend — unit + integration tests (includes tests/test_pan_india.py)
 cd routeOptimiserBackend && python -m pytest
+
+# Model evaluation report (synthetic holdout + CV; see PAN_INDIA_UPGRADE.md)
+cd routeOptimiserBackend && python evaluate_models.py
+
+# Optional, needs internet: real road shapes for every corridor (OpenStreetMap via OSRM)
+cd routeOptimiserBackend && python tools/fetch_corridor_geometry.py
 
 # Frontend — production build check
 cd routeOptimiserFrontend && npm run build

@@ -1,7 +1,7 @@
 {
-  "name": "LogiRush — NER Logistics Intelligence",
+  "name": "LogiRush — Pan-India Logistics Intelligence",
   "short_name": "LogiRush",
-  "description": "Disaster-resilient logistics and accessibility intelligence for the North Eastern Region of India. Works offline for field incident reporting.",
+  "description": "Terrain-aware, multi-hazard logistics and accessibility intelligence for India. Works offline for field incident reporting.",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",

@@ -1,0 +1,167 @@
+# SAMPLE DATA — Pan-India backbone corridors for the LogiRush demonstration network.
+# distance_km      approximate road distance along the named corridor (planning figure, not surveyed)
+# highway_corridor the National Highway / expressway the corridor follows, where known; otherwise
+#                  a descriptive "via" label. Verify against NHAI / MoRTH before operational use.
+# road_class       expressway | nh_4lane | nh_2lane | state_highway | hill_road | high_altitude_pass
+# terrain_class    primary terrain the corridor crosses; secondary_terrain the next most relevant
+#                  (mountain | hill | floodplain | coastal | arid | plains | plateau | forest_remote)
+# ruling_gradient_deg / max_elevation_m / river_proximity_km / coast_distance_km
+#                  rough physical approximations for the corridor, chosen to be directionally
+#                  right (a Himalayan pass is steep and high; a Bihar corridor hugs its rivers).
+#                  They are NOT derived from a DEM or a hydrography layer — replace them with
+#                  SRTM/Cartosat slope and a river/coast buffer query for a real deployment.
+#                  999 = "far" (more than ~200 km) for river and coast distances.
+# seasonal_closure_months  typical winter closure window as MM-MM (inclusive, may wrap the year).
+#                  Based on the historically usual window for these passes; the actual opening
+#                  and closing dates are announced every year by BRO / the state and vary.
+# travel_window    permitted driving hours as HH-HH where movement is routinely restricted at
+#                  night (Bandipur-Mudumalai night ban, J&K/Ladakh convoy timings, Uttarakhand
+#                  monsoon advisories). Empty = no routine restriction.
+# road_status      baseline status; live changes arrive through verified incident reports.
+id,source,destination,distance_km,highway_corridor,road_class,terrain_class,secondary_terrain,ruling_gradient_deg,max_elevation_m,river_proximity_km,coast_distance_km,seasonal_closure_months,travel_window,road_status,notes
+IN001,LOC028,LOC029,280,NH48,nh_4lane,plains,arid,2,450,40,999,,,Open,Delhi-Jaipur: plains into semi-arid eastern Rajasthan
+IN002,LOC028,LOC030,210,Yamuna Expressway,expressway,plains,,1,220,5,999,,,Open,Runs along the Yamuna floodplain; winter fog corridor
+IN003,LOC029,LOC030,240,NH21,nh_4lane,plains,arid,2,430,20,999,,,Open,
+IN004,LOC030,LOC031,335,Agra-Lucknow Expressway,expressway,plains,floodplain,1,170,8,999,,,Open,
+IN005,LOC030,LOC032,285,NH19,nh_4lane,plains,,1,170,10,999,,,Open,Grand Trunk Road
+IN006,LOC032,LOC031,90,NH27,nh_4lane,plains,,1,130,5,999,,,Open,
+IN007,LOC032,LOC033,200,NH19,nh_4lane,plains,floodplain,1,130,3,999,,,Open,
+IN008,LOC033,LOC034,125,NH19,nh_4lane,floodplain,plains,1,100,2,999,,,Open,Ganga floodplain
+IN009,LOC031,LOC035,275,NH27,nh_4lane,plains,floodplain,1,125,4,999,,,Open,East-West Corridor; Ghaghara crossing
+IN010,LOC034,LOC035,210,via Ghazipur,nh_2lane,floodplain,plains,1,85,3,999,,,Open,
+IN011,LOC028,LOC036,250,NH9,nh_4lane,plains,,1,270,10,999,,,Open,
+IN012,LOC036,LOC031,255,NH30,nh_4lane,plains,floodplain,1,270,5,999,,,Open,
+IN013,LOC030,LOC079,120,NH44,nh_4lane,plains,,3,200,5,999,,,Open,Crosses the Chambal ravines
+IN014,LOC079,LOC037,100,NH44,nh_4lane,plains,plateau,3,290,10,999,,,Open,
+IN015,LOC037,LOC032,220,NH27,nh_4lane,plains,plateau,2,285,5,999,,,Open,East-West Corridor
+IN016,LOC058,LOC037,350,NH27,nh_4lane,plateau,forest_remote,3,480,10,999,,,Open,East-West Corridor via Shivpuri
+IN017,LOC037,LOC076,310,via Lalitpur-Sagar,nh_2lane,plateau,forest_remote,4,560,15,999,,,Open,
+IN018,LOC028,LOC038,245,NH44/NH152,nh_4lane,plains,,1,330,15,999,,,Open,
+IN019,LOC038,LOC039,100,via Kharar-Ropar,nh_4lane,plains,,1,300,5,999,,,Open,Sutlej crossing
+IN020,LOC028,LOC039,310,NH44,nh_4lane,plains,,1,260,10,999,,,Open,Main Delhi-Punjab freight artery
+IN021,LOC039,LOC040,140,NH44/NH3,nh_4lane,plains,,1,240,5,999,,,Open,
+IN022,LOC039,LOC041,250,NH44,nh_4lane,plains,hill,3,400,10,999,,,Open,Pathankot-Jammu Shivalik foothills
+IN023,LOC040,LOC041,215,NH54/NH44,nh_4lane,plains,hill,2,330,10,999,,,Open,
+IN024,LOC028,LOC049,250,Delhi-Saharanpur-Dehradun,nh_4lane,plains,hill,3,700,10,999,,,Open,
+IN025,LOC049,LOC050,45,Dehradun-Rishikesh,nh_2lane,hill,plains,5,640,2,999,,,Open,
+IN026,LOC050,LOC051,255,NH7,hill_road,hill,mountain,22,1900,0.5,999,,06-19,Open,Char Dham road along the Alaknanda; monsoon landslides
+IN027,LOC038,LOC048,115,NH5,hill_road,hill,,15,2200,5,999,,,Open,
+IN028,LOC038,LOC046,310,NH205/NH3 via Mandi,hill_road,hill,mountain,18,2050,0.5,999,,,Open,Beas valley; 2023 monsoon washouts
+IN029,LOC046,LOC047,75,NH3 (Atal Tunnel),high_altitude_pass,mountain,,20,3100,1,999,,,Open,All-weather via Atal Tunnel; snow at the north portal
+IN030,LOC047,LOC045,360,NH3 (Baralacha La / Tanglang La),high_altitude_pass,mountain,,22,5328,2,999,11-05,06-18,Open,Manali-Leh highway; typically open only June-October
+IN031,LOC041,LOC042,265,NH44 (Banihal),hill_road,hill,mountain,18,2200,0.5,999,,06-20,Open,Ramban-Banihal stretch prone to slides and shooting stones
+IN032,LOC042,LOC043,80,NH1,hill_road,hill,mountain,8,2740,0.5,999,,,Open,Sindh valley
+IN033,LOC043,LOC044,125,NH1 (Zojila),high_altitude_pass,mountain,,20,3528,1,999,12-04,06-18,Open,Zojila pass; historically closed in winter
+IN034,LOC044,LOC045,220,NH1 (Fotu La),high_altitude_pass,mountain,,12,4108,1,999,,06-18,Open,
+IN035,LOC029,LOC057,135,NH48,nh_4lane,arid,plains,2,480,50,999,,,Open,
+IN036,LOC057,LOC052,200,via Beawar,nh_2lane,arid,,2,400,50,999,,,Open,
+IN037,LOC052,LOC054,285,via Pokaran,nh_2lane,arid,,1,250,999,999,,,Open,Thar desert; long stretches without services
+IN038,LOC052,LOC053,250,NH62,nh_2lane,arid,,1,240,999,999,,,Open,
+IN039,LOC053,LOC029,330,NH11 via Sikar,nh_2lane,arid,plains,1,430,999,999,,,Open,
+IN040,LOC054,LOC055,155,NH68,nh_2lane,arid,,1,230,999,999,,,Open,
+IN041,LOC055,LOC052,200,NH25,nh_2lane,arid,,1,230,999,999,,,Open,
+IN042,LOC052,LOC056,250,via Pali,nh_2lane,arid,hill,8,900,50,999,,,Open,Crosses the Aravalli
+IN043,LOC057,LOC056,265,NH48,nh_4lane,plateau,hill,6,650,40,999,,,Open,
+IN044,LOC056,LOC059,260,NH48,nh_4lane,hill,plains,6,600,20,999,,,Open,
+IN045,LOC029,LOC058,250,NH52,nh_4lane,plains,plateau,2,430,10,999,,,Open,
+IN046,LOC058,LOC077,330,NH52,nh_2lane,plateau,,3,560,20,999,,,Open,
+IN047,LOC055,LOC059,400,NH68/NH27 via Sanchore,nh_2lane,arid,plains,1,230,50,999,,,Open,
+IN048,LOC059,LOC062,215,NH47,nh_4lane,plains,arid,1,130,30,60,,,Open,Saurashtra
+IN049,LOC062,LOC061,155,NH27 via Morbi,nh_4lane,arid,coastal,1,130,100,10,,,Open,Edge of the Little Rann
+IN050,LOC061,LOC060,55,NH41,nh_4lane,arid,,1,110,999,30,,,Open,Kutch
+IN051,LOC059,LOC061,300,NH27/NH41 via Samakhiali,nh_4lane,arid,coastal,1,60,50,20,,,Open,
+IN052,LOC059,LOC063,110,Ahmedabad-Vadodara Expressway,expressway,plains,,1,60,10,60,,,Open,
+IN053,LOC063,LOC064,150,NH48,nh_4lane,plains,coastal,1,40,5,30,,,Open,Narmada crossing at Bharuch
+IN054,LOC064,LOC065,285,NH48,nh_4lane,coastal,plains,3,60,5,15,,,Open,Creek crossings; monsoon waterlogging near Vasai
+IN055,LOC063,LOC077,340,NH47 via Dahod,nh_4lane,plateau,forest_remote,5,560,20,999,,,Open,
+IN056,LOC065,LOC066,150,Mumbai-Pune Expressway,expressway,plateau,hill,7,620,5,15,,,Open,Bhor ghat; monsoon slope failures
+IN057,LOC065,LOC067,170,NH160 (Kasara ghat),nh_4lane,plateau,hill,8,700,5,20,,,Open,
+IN058,LOC067,LOC066,210,NH60,nh_2lane,plateau,,4,700,10,999,,,Open,
+IN059,LOC067,LOC068,160,NH52,nh_4lane,plateau,,3,600,20,999,,,Open,
+IN060,LOC068,LOC077,280,NH52,nh_4lane,plateau,forest_remote,6,600,5,999,,,Open,Narmada crossing at Khalghat
+IN061,LOC067,LOC069,185,via Vaijapur,nh_2lane,plateau,,3,600,20,999,,,Open,
+IN062,LOC066,LOC069,235,via Ahmednagar,nh_2lane,plateau,,2,650,20,999,,,Open,
+IN063,LOC069,LOC070,460,Samruddhi Mahamarg,expressway,plateau,,2,600,20,999,,,Open,Mumbai-Nagpur expressway
+IN064,LOC066,LOC071,250,NH65,nh_4lane,plateau,arid,2,500,20,999,,,Open,Drought-prone Marathwada edge
+IN065,LOC071,LOC107,310,NH65,nh_4lane,plateau,,2,550,20,999,,,Open,
+IN066,LOC066,LOC073,230,NH48,nh_4lane,plateau,hill,5,700,10,999,,,Open,Khambatki ghat
+IN067,LOC073,LOC117,110,NH48,nh_4lane,plateau,,3,750,10,999,,,Open,
+IN068,LOC117,LOC116,95,NH48,nh_4lane,plateau,,2,750,20,999,,,Open,
+IN069,LOC116,LOC111,410,NH48,nh_4lane,plateau,,2,920,10,999,,,Open,Tungabhadra crossing
+IN070,LOC065,LOC072,330,NH66,nh_2lane,coastal,hill,10,300,2,10,,,Open,Mumbai-Goa highway; Kashedi ghat; monsoon landslides
+IN071,LOC072,LOC074,240,NH66,nh_2lane,coastal,hill,8,200,2,5,,,Open,
+IN072,LOC073,LOC072,130,NH166 (Amba ghat),hill_road,hill,forest_remote,14,900,5,30,,,Open,
+IN073,LOC117,LOC074,140,NH748 (Anmod ghat),hill_road,hill,forest_remote,12,800,5,30,,,Open,Western Ghats forest
+IN074,LOC074,LOC075,100,NH66,nh_2lane,coastal,,4,60,2,3,,,Open,
+IN075,LOC075,LOC115,265,NH66,nh_4lane,coastal,hill,5,80,2,3,,,Open,
+IN076,LOC116,LOC075,170,NH63 (Arabail ghat),hill_road,hill,forest_remote,12,650,5,10,,,Open,
+IN077,LOC077,LOC076,195,via Dewas,nh_4lane,plateau,,2,560,20,999,,,Open,
+IN078,LOC076,LOC078,320,NH45,nh_2lane,plateau,forest_remote,4,560,10,999,,,Open,
+IN079,LOC076,LOC070,350,NH46/NH47 via Betul,nh_4lane,plateau,forest_remote,6,700,10,999,,,Open,Satpura range
+IN080,LOC078,LOC070,270,NH44,nh_4lane,forest_remote,plateau,4,600,10,999,,,Open,Pench wildlife corridor
+IN081,LOC078,LOC033,360,NH30 via Rewa,nh_2lane,plateau,forest_remote,5,450,10,999,,,Open,
+IN082,LOC070,LOC080,285,NH53,nh_4lane,plateau,forest_remote,3,330,10,999,,,Open,
+IN083,LOC070,LOC108,200,NH44,nh_4lane,plateau,forest_remote,4,300,5,999,,,Open,
+IN084,LOC108,LOC107,305,NH44,nh_4lane,plateau,,3,520,3,999,,,Open,Godavari crossing
+IN085,LOC080,LOC081,290,NH30 (Keshkal ghat),nh_2lane,forest_remote,hill,10,700,10,999,,,Open,Bastar forests; sparse services
+IN086,LOC081,LOC082,120,NH63,nh_2lane,forest_remote,hill,8,900,10,999,,,Open,
+IN087,LOC082,LOC102,200,via Araku valley,hill_road,hill,forest_remote,14,1000,10,5,,,Open,Eastern Ghats
+IN088,LOC080,LOC083,260,NH53,nh_4lane,plateau,forest_remote,3,300,2,999,,,Open,Mahanadi / Hirakud
+IN089,LOC083,LOC098,300,NH55 via Angul,nh_2lane,forest_remote,plateau,4,200,2,999,,,Open,
+IN090,LOC083,LOC084,310,via Rourkela,nh_2lane,forest_remote,plateau,5,700,10,999,,,Open,
+IN091,LOC084,LOC085,130,NH33,nh_4lane,plateau,forest_remote,5,650,10,999,,,Open,
+IN092,LOC085,LOC096,135,NH49,nh_4lane,plateau,plains,2,150,10,999,,,Open,
+IN093,LOC084,LOC088,230,via Hazaribagh,nh_2lane,plateau,forest_remote,6,650,10,999,,,Open,Chota Nagpur plateau
+IN094,LOC088,LOC089,100,NH22,nh_4lane,plains,floodplain,1,110,3,999,,,Open,
+IN095,LOC088,LOC086,200,NH19,nh_4lane,plateau,forest_remote,4,300,10,999,,,Open,Grand Trunk Road
+IN096,LOC034,LOC088,250,NH19,nh_4lane,plains,floodplain,1,110,3,999,,,Open,Son crossing
+IN097,LOC086,LOC087,60,NH19,nh_4lane,plateau,,2,200,10,999,,,Open,
+IN098,LOC087,LOC095,215,NH19 (Durgapur Expressway),nh_4lane,plains,floodplain,1,110,3,999,,,Open,Damodar valley
+IN099,LOC034,LOC089,250,via Buxar-Arrah,nh_2lane,floodplain,,1,70,1,999,,,Open,
+IN100,LOC035,LOC090,250,NH27,nh_4lane,floodplain,,1,80,1,999,,,Open,Gandak crossing
+IN101,LOC089,LOC090,75,NH22 (Mahatma Gandhi Setu),nh_4lane,floodplain,,1,55,0.5,999,,,Open,Ganga bridge
+IN102,LOC090,LOC091,70,NH27,nh_4lane,floodplain,,1,55,1,999,,,Open,Bagmati basin
+IN103,LOC089,LOC091,140,via Samastipur,nh_2lane,floodplain,,1,50,0.5,999,,,Open,Patna-Darbhanga: flood-prone north Bihar
+IN104,LOC091,LOC092,190,NH27 (Kosi bridge),nh_4lane,floodplain,,1,45,0.5,999,,,Open,Kosi floodplain
+IN105,LOC092,LOC001,170,NH27,nh_4lane,floodplain,plains,1,120,2,999,,,Open,Gateway to the North East
+IN106,LOC089,LOC093,230,via Munger,nh_2lane,floodplain,,1,50,0.5,999,,,Open,South bank of the Ganga
+IN107,LOC093,LOC092,90,via Vikramshila Setu,nh_2lane,floodplain,,1,40,0.5,999,,,Open,
+IN108,LOC095,LOC094,330,NH12,nh_4lane,floodplain,,1,30,1,999,,,Open,Farakka barrage crossing
+IN109,LOC094,LOC001,250,NH12/NH27,nh_4lane,floodplain,plains,1,120,2,999,,,Open,
+IN110,LOC094,LOC092,130,via Kishanganj road,nh_2lane,floodplain,,1,35,1,999,,,Open,
+IN111,LOC095,LOC096,130,NH16,nh_4lane,floodplain,coastal,1,30,1,60,,,Open,
+IN112,LOC096,LOC097,115,NH16,nh_4lane,coastal,plains,1,30,5,25,,,Open,
+IN113,LOC097,LOC098,200,NH16,nh_4lane,coastal,floodplain,1,45,2,20,,,Open,Mahanadi delta
+IN114,LOC098,LOC099,60,NH316,nh_4lane,coastal,,1,10,5,0.5,,,Open,Cyclone-exposed coast
+IN115,LOC098,LOC100,110,NH53,nh_4lane,coastal,floodplain,1,10,1,1,,,Open,Port connectivity
+IN116,LOC098,LOC101,165,NH16,nh_4lane,coastal,,2,40,5,5,,,Open,Along Chilika
+IN117,LOC101,LOC102,270,NH16,nh_4lane,coastal,,2,60,5,5,,,Open,
+IN118,LOC102,LOC103,195,NH16,nh_4lane,coastal,plains,2,60,5,20,,,Open,
+IN119,LOC103,LOC104,150,NH16,nh_4lane,floodplain,coastal,1,25,0.5,30,,,Open,Godavari-Krishna deltas
+IN120,LOC104,LOC105,265,NH16,nh_4lane,coastal,plains,1,20,5,20,,,Open,
+IN121,LOC105,LOC106,175,NH16,nh_4lane,coastal,,1,20,5,10,,,Open,
+IN122,LOC107,LOC104,275,NH65,nh_4lane,plateau,plains,2,520,2,999,,,Open,Krishna crossing
+IN123,LOC107,LOC109,215,NH44,nh_4lane,plateau,,2,520,1,999,,,Open,
+IN124,LOC109,LOC110,145,NH44,nh_4lane,arid,plateau,2,350,20,999,,,Open,Semi-arid Rayalaseema
+IN125,LOC110,LOC111,210,NH44,nh_4lane,plateau,arid,2,920,20,999,,,Open,
+IN126,LOC106,LOC112,140,NH48,nh_4lane,plains,coastal,1,220,10,10,,,Open,Chennai-Bengaluru industrial corridor
+IN127,LOC112,LOC111,210,NH48,nh_4lane,plateau,,4,920,10,999,,,Open,
+IN128,LOC111,LOC124,200,NH44,nh_4lane,plateau,,4,920,10,999,,,Open,
+IN129,LOC124,LOC121,165,NH544,nh_4lane,plateau,plains,2,420,10,999,,,Open,
+IN130,LOC121,LOC118,190,NH544 (Palakkad gap),nh_4lane,plains,coastal,2,420,5,10,,,Open,
+IN131,LOC118,LOC119,205,NH66,nh_2lane,coastal,,2,30,2,3,,,Open,Backwater coast
+IN132,LOC118,LOC120,185,NH66,nh_2lane,coastal,,2,30,2,3,,,Open,
+IN133,LOC120,LOC115,225,NH66,nh_2lane,coastal,,2,30,2,3,,,Open,
+IN134,LOC115,LOC111,350,NH75 (Shiradi ghat),nh_2lane,hill,forest_remote,14,950,5,5,,,Open,Monsoon landslides on the Shiradi ghat
+IN135,LOC111,LOC113,145,Bengaluru-Mysuru Expressway,expressway,plateau,,2,920,10,999,,,Open,
+IN136,LOC113,LOC114,125,via Bandipur-Mudumalai,hill_road,forest_remote,hill,14,2240,10,999,,06-21,Open,Night traffic ban through the tiger reserves
+IN137,LOC114,LOC121,85,NH181 (Mettupalayam ghat),hill_road,hill,,15,2240,10,999,,,Open,Nilgiri ghat hairpins
+IN138,LOC113,LOC120,215,NH766 (Thamarassery ghat),hill_road,forest_remote,hill,12,900,10,5,,06-21,Open,Bandipur night ban applies
+IN139,LOC124,LOC123,140,via Namakkal,nh_4lane,plains,,1,150,1,999,,,Open,Kaveri crossing
+IN140,LOC123,LOC122,135,NH38,nh_4lane,plains,,1,120,10,999,,,Open,
+IN141,LOC122,LOC119,300,NH44 via Tirunelveli,nh_4lane,plains,arid,2,150,10,15,,,Open,
+IN142,LOC106,LOC123,330,NH32/NH38 via Villupuram,nh_4lane,plains,,1,90,10,40,,,Open,
+IN143,LOC106,LOC125,150,East Coast Road,state_highway,coastal,,1,10,5,1,,,Open,
+IN144,LOC125,LOC123,205,via Villupuram,nh_2lane,plains,coastal,1,80,10,1,,,Open,
+IN145,LOC122,LOC121,215,via Dindigul-Palani,nh_2lane,plains,hill,3,420,10,999,,,Open,
+IN146,LOC003,LOC126,320,NH13 (Bomdila / Sela Tunnel),high_altitude_pass,mountain,hill,18,4170,2,999,,06-18,Open,All-weather since the Sela Tunnel; heavy snow still slows it

@@ -325,7 +325,7 @@ const DataSources = () => {
 
       <p className="text-xs text-ink-muted mt-8 leading-relaxed">
         The one genuinely live input is the reports people file — from this console or from
-        the NER Field Reporter app on a phone at the obstruction. Both write to the same
+        the LogiRush Field Reporter app on a phone at the obstruction. Both write to the same
         database, so an app report appears in the{" "}
         <Link to="/incidents" className="text-accent">review queue</Link> here.{" "}
         <Link to="/report-incident" className="text-accent">File one</Link> and watch it arrive.

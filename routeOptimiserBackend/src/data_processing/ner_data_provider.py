@@ -33,6 +33,16 @@ class Location:
     latitude: float
     longitude: float
     district: str
+    # Pan-India attributes (india_data_provider). Defaults keep every existing NER call site
+    # and test constructing a Location with six fields working unchanged.
+    region: str = "North East"
+    elevation_m: Optional[float] = None
+    urban_class: str = "town"
+    railhead: bool = False
+    airport: bool = False
+    river_terminal: bool = False
+    river_system: Optional[str] = None
+    seaport: bool = False
 
 
 @dataclass(frozen=True)

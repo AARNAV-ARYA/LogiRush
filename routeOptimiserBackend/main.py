@@ -31,6 +31,9 @@ _cors_origins = os.environ.get("CORS_ORIGINS", "*")
 CORS(app, resources={r"/api/*": {"origins": _cors_origins.split(",") if _cors_origins != "*" else "*"}})
 app.register_blueprint(auth_bp)
 app.register_blueprint(ner_bp)
+# The same API under its Pan-India name. /api/ner/* stays mounted so the deployed field app and
+# any existing integration keep working; new clients should use /api/india/*.
+app.register_blueprint(ner_bp, url_prefix="/api/india", name="india")
 app.register_blueprint(shipment_bp)
 
 # Create incident/shipment tables if absent. Non-fatal: the cross-border optimiser and the
@@ -82,7 +85,7 @@ def payload_too_large(_error):
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "service": "logirush-ner-platform"}), 200
+    return jsonify({"status": "ok", "service": "logirush-ner-platform"}), 200  # name kept: monitors match on it
 
 
 def _warm_caches():

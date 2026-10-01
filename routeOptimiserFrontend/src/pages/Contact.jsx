@@ -5,7 +5,7 @@ const Contact = () => {
       
       <div className="bg-surface border border-white/10 rounded-lg p-8">
         <p className="text-ink-secondary mb-8">
-          For questions, feedback, or support regarding the NER Logistics Intelligence Platform,
+          For questions, feedback, or support regarding the LogiRush Pan-India Logistics Intelligence Platform,
           please reach out through the following channels:
         </p>
 

@@ -8,23 +8,32 @@ const About = () => {
       <div className="space-y-6 text-ink-secondary">
         <section>
           <h2 className="text-2xl font-semibold text-white mb-4">
-            NER Logistics Intelligence Platform
+            Pan-India Logistics Intelligence Platform
           </h2>
           <p>
-            LogiRush is a disaster-resilient logistics and accessibility intelligence platform
-            designed specifically for the North Eastern Region (NER) of India. Built to address
-            the unique challenges of logistics in disaster-prone areas, our platform combines
-            advanced route optimization with real-time risk assessment.
+            LogiRush is a terrain-aware, multi-hazard logistics and accessibility intelligence
+            platform for India. It began with the North Eastern Region (NER) — still its most
+            detailed network — and now covers a national demonstration backbone in which each
+            corridor is scored for the hazards of its own terrain: snow and landslides on the
+            Himalayan passes, flooding on the Bihar and Assam floodplains, cyclones on the east
+            coast, heat on the Thar, fog on the Gangetic plain. Coverage is a selected backbone
+            with sample terrain data, not every road in India.
           </p>
         </section>
 
         <section>
           <h2 className="text-2xl font-semibold text-white mb-4">Key Capabilities</h2>
           <ul className="list-disc list-inside space-y-2 ml-4">
-            <li>Multi-objective route optimisation (time, cost, accessibility, risk)</li>
+            <li>Multi-objective route optimisation (time, cost, accessibility, risk, reliability)</li>
+            <li>
+              Terrain intelligence: eight terrain profiles, each with its own hazard weights and
+              IMD-based thresholds (rainfall, heatwave, cyclone wind, fog)
+            </li>
+            <li>Seasonal pass closures and night-movement restrictions in the ETA</li>
+            <li>Clearly labelled simulated scenarios (cyclone, heatwave, snowstorm, floods, fog)</li>
             <li>Explainable disaster prediction per road corridor</li>
             <li>
-              Community incident reporting from the web console and the NER Field Reporter
+              Community incident reporting from the web console and the LogiRush Field Reporter
               app, into one shared database, with human verification before any road closes
             </li>
             <li>Deterministic accessibility scoring, recomputable by hand</li>

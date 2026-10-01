@@ -7,7 +7,7 @@ import {
   Badge, Card, DemoDataNotice, EmptyState, ErrorState, SectionHeading, Spinner, Toggle,
 } from "../components/ui";
 import { useApi } from "../hooks/useApi";
-import { incidentLabel } from "../lib/accessibility";
+import { BLOCKING_INCIDENT_TYPES, incidentLabel } from "../lib/accessibility";
 import { formatDistance, timeAgo } from "../lib/format";
 
 const SEVERITY_TONES = ["neutral", "neutral", "warning", "warning", "danger", "danger"];
@@ -91,6 +91,7 @@ const IncidentRow = ({ incident, onChanged }) => {
   const [error, setError] = useState(null);
   const [prompt, setPrompt] = useState(null);   // "reject" | "resolve" | "delete"
   const [audit, setAudit] = useState(null);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   const status = incident.verification_status;
   const refusal = refusalFor(incident, "verify");
@@ -112,7 +113,7 @@ const IncidentRow = ({ incident, onChanged }) => {
 
   const isClosure =
     incident.severity >= 5 &&
-    ["landslide", "flood", "road_block", "bridge_damage"].includes(incident.type);
+    BLOCKING_INCIDENT_TYPES.includes(incident.type);
   const closesCorridor = status === "verified" && isClosure && incident.segment_id;
   const terminal = ["resolved", "rejected", "withdrawn"].includes(status);
   // "Verify" is only meaningful where there is something left to sign. On an already-verified
@@ -141,6 +142,55 @@ const IncidentRow = ({ incident, onChanged }) => {
           <p className="text-sm text-ink-secondary mt-1.5">
             {incident.description || "No description provided."}
           </p>
+
+          {/* Photo attached from the field app — shown as a thumbnail, click to enlarge */}
+          {incident.image_url && (
+            <>
+              <button
+                className="mt-2 block rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
+                style={{ width: 180, height: 120 }}
+                onClick={() => setPhotoOpen(true)}
+                title="Click to enlarge photo"
+                aria-label="View attached photo full size"
+              >
+                <img
+                  src={incident.image_url}
+                  alt="Field photograph attached to this incident report"
+                  className="w-full h-full object-cover"
+                />
+              </button>
+
+              {/* Lightbox */}
+              {photoOpen && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/85"
+                  onClick={() => setPhotoOpen(false)}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Full size incident photo"
+                >
+                  <div className="relative max-w-3xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                    <img
+                      src={incident.image_url}
+                      alt="Full size field photograph"
+                      className="w-full max-h-[80vh] object-contain rounded-xl"
+                    />
+                    <p className="text-center text-xs text-white/50 mt-3">
+                      📷 Photo from field app · {incident.reporter_name || "Anonymous"} · {new Date(incident.reported_at).toLocaleString()}
+                    </p>
+                    <button
+                      className="absolute top-2 right-2 text-white/70 hover:text-white bg-black/50 rounded-full w-8 h-8 flex items-center justify-center text-lg leading-none"
+                      onClick={() => setPhotoOpen(false)}
+                      aria-label="Close photo"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
           <p className="text-xs text-ink-muted mt-1">
             {incident.reporter_name || "Anonymous"}
             {SOURCE_LABELS[incident.source] ? <> · {SOURCE_LABELS[incident.source]}</> : null} ·{" "}

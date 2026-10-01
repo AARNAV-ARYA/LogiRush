@@ -110,3 +110,77 @@ def assess_segment(
             "delay_risk": delay_risk,
         },
     )
+
+
+# ---------------------------------------------------------------- terrain-aware (Pan-India)
+#
+# The same idea as the SIH Module 1 formula — 100 minus a weighted sum of 0-100 risks — with
+# the weights supplied by the corridor's terrain profile (src/terrain/profiles.py) instead of
+# being fixed nationally. Still deterministic, still ML-free: the only ML output that can reach
+# this function is a flood or landslide risk the service has already blended with baseline.
+
+# A hazard at or above these levels caps the score regardless of its terrain weight. Weights
+# tune the ordinary regime; they must not let an extreme event hide behind a small weight (a
+# plains corridor under a cyclonic storm is not "Good" because plains weight wind at 0.05).
+CRITICAL_HAZARD_CAPS = (
+    (95.0, 15.0),  # hazard >= 95 -> score at most 15 (Critical)
+    (85.0, 35.0),  # hazard >= 85 -> score at most 35 (Poor)
+)
+
+# Per-hazard exceptions to the 85 tier. Rain is a trigger whose damage already arrives through
+# the flood and landslide terms, so it only caps at the extremely-heavy (95) tier. Fog stops
+# nothing outright — it slows traffic, which travel time already models — so very dense fog
+# caps at Moderate (45): heavy rigs are held, ordinary trucks keep moving slowly.
+TIER_85_CEILING_OVERRIDE = {"rain": None, "fog": 45.0}
+
+
+def compute_terrain_accessibility(risks: dict, weights: dict) -> dict:
+    """Terrain-weighted accessibility score.
+
+    `risks` maps component -> 0-100 risk, or None when the component does not apply to this
+    corridor (snow on the Konkan coast) or has no data. Missing components are excluded and
+    the remaining weights are renormalised, so a corridor is never rewarded for a hazard that
+    was not measured — nor penalised for one that cannot happen there.
+
+    Returns score, category, the effective weights actually used, the per-component penalty
+    contributions (for the "why" panel), and which cap fired, if any.
+    """
+    used = {c: float(w) for c, w in weights.items() if w > 0 and risks.get(c) is not None}
+    total_weight = sum(used.values())
+    if total_weight <= 0:
+        return {"score": 100.0, "category": categorize_accessibility(100.0), "weights_used": {},
+                "contributions": {}, "cap": None}
+
+    contributions = {
+        c: round((w / total_weight) * _clamp(float(risks[c])), 2) for c, w in used.items()
+    }
+    score = _clamp(100.0 - sum(contributions.values()))
+
+    cap_applied = None
+    natural = [c for c in used if c not in ("incident", "delay")]
+    for threshold, default_ceiling in CRITICAL_HAZARD_CAPS:
+        candidates = []
+        for c in natural:
+            if float(risks[c]) < threshold:
+                continue
+            ceiling = default_ceiling
+            if threshold < 95.0 and c in TIER_85_CEILING_OVERRIDE:
+                ceiling = TIER_85_CEILING_OVERRIDE[c]
+            if ceiling is not None:
+                candidates.append((ceiling, c))
+        if candidates:
+            ceiling, worst_component = min(candidates)
+            if score > ceiling:
+                cap_applied = {"hazard": worst_component, "risk": round(float(risks[worst_component]), 1),
+                               "ceiling": ceiling}
+                score = ceiling
+            break
+
+    score = round(score, 2)
+    return {
+        "score": score,
+        "category": categorize_accessibility(score),
+        "weights_used": {c: round(w / total_weight, 4) for c, w in used.items()},
+        "contributions": contributions,
+        "cap": cap_applied,
+    }

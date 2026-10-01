@@ -9,7 +9,12 @@ import { compressImage } from "../utils/offlineStore";
 import OfflineReadiness from "../components/OfflineReadiness";
 import IncidentLocationPreview from "../components/IncidentLocationPreview";
 
-const INCIDENT_TYPES = ["landslide", "flood", "road_block", "bridge_damage", "accident", "other"];
+// Mirrors the backend taxonomy (GET /api/ner/incident-types). The first six are the original
+// NER set; the rest are the disruptions other terrains produce.
+const INCIDENT_TYPES = [
+  "landslide", "flood", "road_block", "bridge_damage", "accident", "other",
+  "waterlogging", "snow_blockage", "avalanche", "cyclone_damage", "dense_fog", "heat_damage",
+];
 
 const SEVERITY_HINTS = {
   1: "Minor — traffic largely unaffected",
@@ -313,6 +318,7 @@ const ReportIncident = () => {
                   ? {
                       source_coords: attribution.source_coords,
                       destination_coords: attribution.destination_coords,
+                      geometry: attribution.geometry,
                     }
                   : null
               }

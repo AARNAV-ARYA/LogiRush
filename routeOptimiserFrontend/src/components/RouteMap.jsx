@@ -27,24 +27,32 @@ import { LABELS, TILES, TILE_THEME } from "../lib/mapTiles";
 export { TILES, TILE_THEME };
 import {
   ACCESSIBILITY_BANDS,
+  HAZARD_LABELS,
   IMPASSABLE_STYLE,
+  RISK_BANDS,
   STATUS_COLORS,
   accessibilityColor,
+  closureLabel,
+  corridorRiskStyle,
   corridorStyle,
   incidentLabel,
+  riskColor,
+  segmentRisk,
+  terrainLabel,
 } from "../lib/accessibility";
 import { formatKm, formatPercent, timeAgo } from "../lib/format";
 
-const NER_CENTER = [25.9, 92.6];
+// Pan-India: centred on the subcontinent. The North East is still one zoom-in away.
+const INDIA_CENTER = [22.8, 81.0];
 const ACCENT = "#38bdf8";
 
-// Graticule spanning the North Eastern Region. Drawn under everything at very low contrast.
+// Graticule spanning mainland India. Drawn under everything at very low contrast.
 //
 // This exists for the case the basemap does not load — which for this audience is not an
 // edge case but the normal field condition. Without any ground reference the corridor
 // network is a web of lines floating in black, and a responder cannot tell north from
 // south or judge a distance. Two degrees of latitude and longitude is enough to anchor it.
-const GRATICULE = { latFrom: 21, latTo: 30, lonFrom: 87, lonTo: 97, step: 2 };
+const GRATICULE = { latFrom: 8, latTo: 36, lonFrom: 68, lonTo: 98, step: 4 };
 
 // Regional hubs, labelled at every zoom. The rest of the towns get labels only once the
 // view is close enough for them not to collide.
@@ -54,11 +62,28 @@ const GRATICULE = { latFrom: 21, latTo: 30, lonFrom: 87, lonTo: 97, step: 2 };
 // the minor ones as you zoom — the same trick every road atlas uses. These eleven are the
 // state capitals and the major railheads, which is what someone orienting themselves on
 // this network actually looks for first.
+// Pan-India: the metros and the regional gateways are labelled at national zoom; the North
+// Eastern capitals appear once the view closes in on the region.
 const MAJOR_HUBS = new Set([
-  "Guwahati", "Siliguri", "Shillong", "Imphal", "Aizawl", "Agartala",
-  "Kohima", "Itanagar", "Gangtok", "Dibrugarh", "Silchar",
+  "Delhi", "Mumbai", "Kolkata", "Chennai", "Bengaluru", "Hyderabad", "Ahmedabad",
+  "Jaipur", "Lucknow", "Patna", "Bhubaneswar", "Nagpur", "Bhopal", "Kochi",
+  "Srinagar", "Leh", "Guwahati", "Siliguri", "Visakhapatnam", "Pune",
 ]);
+const REGIONAL_HUBS = new Set([
+  "Shillong", "Imphal", "Aizawl", "Agartala", "Kohima", "Itanagar", "Gangtok",
+  "Dibrugarh", "Silchar", "Jammu", "Chandigarh", "Shimla", "Dehradun", "Manali", "Kargil",
+  "Jodhpur", "Jaisalmer", "Raipur", "Ranchi", "Panaji", "Mangaluru", "Thiruvananthapuram",
+  "Madurai", "Coimbatore", "Varanasi", "Indore", "Darbhanga", "Puri", "Tawang",
+]);
+const REGIONAL_LABEL_ZOOM = 6;
 const MINOR_LABEL_ZOOM = 8;
+
+/** The real road polyline when the backend has one, otherwise the straight chord. */
+function corridorPositions(segment) {
+  return segment.geometry?.length >= 2
+    ? segment.geometry
+    : [segment.source_coords, segment.destination_coords];
+}
 
 /** Track zoom so labels can be revealed progressively. */
 function useZoomLevel() {
@@ -111,6 +136,38 @@ function FitBounds({ bounds }) {
   return null;
 }
 
+/** Legend for hazard / multi-hazard colouring: higher is worse, one ramp. */
+const RiskLegend = ({ compact, title }) => (
+  <div className={`panel-glass px-3 py-2.5 ${compact ? "text-[10px]" : "text-[11px]"}`}>
+    <p className="label-micro mb-1.5">{title}</p>
+    <ul className="space-y-1">
+      {RISK_BANDS.map((band) => (
+        <li key={band.label} className="flex items-center gap-2 whitespace-nowrap">
+          <svg width="26" height="8" aria-hidden="true" className="shrink-0">
+            <line x1="0" y1="4" x2="26" y2="4" stroke={band.color} strokeWidth={band.weight}
+              strokeDasharray={band.dash || undefined} strokeLinecap="round" />
+          </svg>
+          <span className="text-ink-secondary">{band.label}</span>
+          <span className="text-ink-muted ml-auto pl-2 tabular-nums">{band.range}</span>
+        </li>
+      ))}
+      <li className="flex items-center gap-2 whitespace-nowrap">
+        <svg width="26" height="8" aria-hidden="true" className="shrink-0">
+          <line x1="0" y1="4" x2="26" y2="4" stroke="#4b5b6b" strokeWidth="2" strokeDasharray="2 4" />
+        </svg>
+        <span className="text-ink-muted">Not applicable here</span>
+      </li>
+      <li className="flex items-center gap-2 whitespace-nowrap pt-1 border-t border-white/10 mt-1">
+        <svg width="26" height="8" aria-hidden="true" className="shrink-0">
+          <line x1="0" y1="4" x2="26" y2="4" stroke={IMPASSABLE_STYLE.color} strokeWidth={IMPASSABLE_STYLE.weight}
+            strokeDasharray={IMPASSABLE_STYLE.dash} strokeLinecap="round" />
+        </svg>
+        <span className="text-[#e97676]">Closed</span>
+      </li>
+    </ul>
+  </div>
+);
+
 /**
  * Legend.
  *
@@ -160,8 +217,9 @@ const LocationMarkers = memo(function LocationMarkers({ locations }) {
   return (
     <>
       {locations.map((location) => {
-        const labelled = MAJOR_HUBS.has(location.name) || zoom >= MINOR_LABEL_ZOOM;
         const major = MAJOR_HUBS.has(location.name);
+        const regional = REGIONAL_HUBS.has(location.name);
+        const labelled = major || (regional && zoom >= REGIONAL_LABEL_ZOOM) || zoom >= MINOR_LABEL_ZOOM;
         return (
           <CircleMarker
             key={location.id}
@@ -216,6 +274,9 @@ export default function RouteMap({
   // drops its frame, fills whatever box it is given, and takes the wheel — on a screen
   // where the map IS the interface, trapping scroll would be the surprising behaviour.
   bleed = false,
+  // What the corridor colour encodes: "accessibility" (default), "multi_hazard" (the
+  // terrain-weighted disruption index) or one hazard key ("heat", "snow", "fog", ...).
+  colorBy = "accessibility",
 }) {
   // Track whether the basemap actually arrived. If it did not, the map says so plainly
   // rather than presenting an empty black rectangle as though that were the terrain.
@@ -238,6 +299,7 @@ export default function RouteMap({
       ? drawable.filter((s) => highlightSet.has(s.id))
       : drawable;
     const points = source.flatMap((s) => [s.source_coords, s.destination_coords]);
+    // (Endpoints are enough for bounds; a road's bends stay close to its chord's box.)
     return points.length >= 2 ? points : null;
   }, [drawable, highlightSet, fitToHighlight]);
 
@@ -250,8 +312,8 @@ export default function RouteMap({
       data-testid="route-map"
     >
       <MapContainer
-        center={NER_CENTER}
-        zoom={7}
+        center={INDIA_CENTER}
+        zoom={5}
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={bleed}
         zoomControl={false}
@@ -296,14 +358,16 @@ export default function RouteMap({
           const highlighted = highlightSet ? highlightSet.has(segment.id) : false;
           const dimmed = highlightSet && !highlighted;
           const selected = segment.id === selectedSegmentId;
-          const style = corridorStyle(segment.accessibility_score, segment.impassable);
+          const style = colorBy === "accessibility"
+            ? corridorStyle(segment.accessibility_score, segment.impassable)
+            : corridorRiskStyle(segmentRisk(segment, colorBy), segment.impassable);
 
           return (
             <Fragment key={segment.id}>
               {/* A dark casing under every corridor. Without it a thin bright line over a
                   dark basemap shimmers and is hard to follow at distance. */}
               <Polyline
-                positions={[segment.source_coords, segment.destination_coords]}
+                positions={corridorPositions(segment)}
                 interactive={false}
                 pathOptions={{
                   color: "#05080c",
@@ -312,7 +376,7 @@ export default function RouteMap({
                 }}
               />
               <Polyline
-                positions={[segment.source_coords, segment.destination_coords]}
+                positions={corridorPositions(segment)}
                 eventHandlers={onSelectSegment ? { click: () => onSelectSegment(segment) } : undefined}
                 pathOptions={{
                   // The planned route wins the accent colour; everything else keeps its
@@ -332,6 +396,18 @@ export default function RouteMap({
                     <div style={{ color: "#9fb2c6", fontSize: 12, marginTop: 2 }}>
                       {segment.highway_corridor} · {formatKm(segment.distance_km)}
                     </div>
+                    {segment.terrain && (
+                      <div style={{ color: "#9fb2c6", fontSize: 12 }}>
+                        {terrainLabel(segment.terrain.class)}
+                        {segment.terrain.secondary ? ` + ${terrainLabel(segment.terrain.secondary).toLowerCase()}` : ""}
+                        {" · "}{segment.terrain.road_class_label}
+                      </div>
+                    )}
+                    {segment.simulated && (
+                      <div style={{ color: STATUS_COLORS.warning, fontSize: 11, fontWeight: 700, marginTop: 2 }}>
+                        SIMULATED CONDITIONS
+                      </div>
+                    )}
                     <hr style={{ borderColor: "rgba(255,255,255,0.12)", margin: "8px 0" }} />
                     <div>
                       Status: <strong>{segment.road_status}</strong>
@@ -341,6 +417,11 @@ export default function RouteMap({
                         </span>
                       )}
                     </div>
+                    {segment.closure && (
+                      <div style={{ fontSize: 11, color: "#e97676" }}>
+                        {closureLabel(segment.closure.type)}: {segment.closure.reason}
+                      </div>
+                    )}
                     <div>
                       Accessibility:{" "}
                       <strong style={{ color: accessibilityColor(segment.accessibility_score) }}>
@@ -358,6 +439,25 @@ export default function RouteMap({
                           flood {formatPercent(segment.prediction.flood_probability * 100, 0)} ·
                           landslide{" "}
                           {formatPercent(segment.prediction.landslide_probability * 100, 0)}
+                        </div>
+                      </div>
+                    )}
+                    {segment.hazards && (
+                      <div style={{ marginTop: 6 }}>
+                        <div style={{ fontSize: 11, color: "#9fb2c6" }}>
+                          Multi-hazard index{" "}
+                          <strong style={{ color: riskColor(segment.multi_hazard_index) }}>
+                            {Math.round(segment.multi_hazard_index)}/100
+                          </strong>
+                          {segment.dominant_hazard ? ` · mainly ${HAZARD_LABELS[segment.dominant_hazard]?.toLowerCase()}` : ""}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#9fb2c6", marginTop: 2 }}>
+                          {Object.values(segment.hazards)
+                            .filter((h) => h.applicable && h.risk !== null)
+                            .sort((a, b) => b.risk - a.risk)
+                            .slice(0, 4)
+                            .map((h) => `${HAZARD_LABELS[h.hazard]} ${Math.round(h.risk)}`)
+                            .join(" · ")}
                         </div>
                       </div>
                     )}
@@ -413,7 +513,14 @@ export default function RouteMap({
           panes without reaching the popup layer, which must stay on top. */}
       {showLegend && (
         <div className="absolute left-3 bottom-6 z-[400] pointer-events-none">
-          <MapLegend compact={!bleed && height < 400} />
+          {colorBy === "accessibility" ? (
+            <MapLegend compact={!bleed && height < 400} />
+          ) : (
+            <RiskLegend
+              compact={!bleed && height < 400}
+              title={colorBy === "multi_hazard" ? "Multi-hazard index" : `${HAZARD_LABELS[colorBy] || colorBy} risk`}
+            />
+          )}
         </div>
       )}
       {overlay ? <div className="absolute inset-x-3 top-3 z-[400]">{overlay}</div> : null}

@@ -286,7 +286,9 @@ def test_preview_names_the_corridor_a_report_would_land_on(client):
 
 
 def test_preview_says_so_when_a_point_is_off_the_network(client):
-    response = client.get("/api/ner/incidents/preview?lat=19.0760&lon=72.8777")
+    # Port Blair: the islands have no road link to the mainland network. (Mumbai served here
+    # until the Pan-India backbone put it on the network.)
+    response = client.get("/api/ner/incidents/preview?lat=11.6234&lon=92.7265")
     assert response.status_code == 200
     body = response.get_json()
     assert body["on_network"] is False
@@ -313,14 +315,14 @@ def test_created_incident_reports_its_own_attribution(client):
 
 def test_an_off_network_report_is_kept_but_claims_no_corridor(client):
     response = client.post(
-        "/api/ner/incidents", json=_incident_payload(latitude=19.0760, longitude=72.8777)
+        "/api/ner/incidents", json=_incident_payload(latitude=11.6234, longitude=92.7265)
     )
     assert response.status_code == 201
     body = response.get_json()
     assert body["incident"]["segment_id"] is None
     assert body["attribution"]["on_network"] is False
     # The report itself is not thrown away — it is still a person telling us something.
-    assert body["incident"]["latitude"] == 19.0760
+    assert body["incident"]["latitude"] == 11.6234
 
 
 # ---------------------------------------------------------------- one database, two clients

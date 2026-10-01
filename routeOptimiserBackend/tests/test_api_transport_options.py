@@ -118,8 +118,14 @@ def test_routine_shipment_does_not_recommend_airlift(client):
 
 
 def test_vehicle_classes_can_take_different_routes(client):
-    """The point of pruning per mode: a heavy truck may be routed differently from a pickup."""
-    _, body = plan(client, origin="LOC001", destination="LOC012", weight_kg=3000)
+    """The point of pruning per mode: a heavy truck may be routed differently from a pickup.
+
+    Siliguri -> Kohima: the direct NH29 climb from Dimapur scores below the 9-tonne truck's
+    accessibility floor, so the truck is sent round via Imphal while lighter vehicles take it.
+    (The test used Aizawl before the Pan-India terrain scoring; Silchar-Aizawl now scores just
+    above the truck floor, so every class legitimately shares that route.)
+    """
+    _, body = plan(client, origin="LOC001", destination="LOC014", weight_kg=3000)
     road = {
         o["mode"]: tuple(o["path_names"])
         for o in body["transport_options"]
