@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { FlatList, Image, Modal, Pressable, RefreshControl, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { getQueue, getSent, sync } from "../src/lib/queue";
 import { T, severityColor, typeLabel } from "../src/lib/theme";
@@ -31,6 +31,7 @@ const STATE = {
 export default function ReportsScreen() {
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [lightbox, setLightbox] = useState(null); // uri of photo to show fullscreen
 
   const load = useCallback(async () => {
     const [queue, sent] = await Promise.all([getQueue(), getSent()]);
@@ -56,6 +57,25 @@ export default function ReportsScreen() {
 
   return (
     <View style={s.screen}>
+      {/* Fullscreen photo lightbox */}
+      <Modal visible={!!lightbox} transparent animationType="fade" onRequestClose={() => setLightbox(null)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", justifyContent: "center", alignItems: "center" }}
+          onPress={() => setLightbox(null)}
+        >
+          {lightbox && (
+            <Image
+              source={{ uri: lightbox }}
+              style={{ width: "96%", height: "70%", borderRadius: 12 }}
+              resizeMode="contain"
+            />
+          )}
+          <Text style={{ color: "rgba(255,255,255,0.45)", marginTop: 16, fontSize: 13 }}>
+            Tap anywhere to close
+          </Text>
+        </Pressable>
+      </Modal>
+
       <FlatList
         data={items}
         keyExtractor={(item) => item.client_uuid}
@@ -102,6 +122,20 @@ export default function ReportsScreen() {
                 <Text style={[s.body, { marginTop: 8 }]} numberOfLines={3}>
                   {item.description}
                 </Text>
+              )}
+
+              {/* Photo thumbnail — tap to view fullscreen */}
+              {!!item.image_url && (
+                <Pressable onPress={() => setLightbox(item.image_url)} style={{ marginTop: 10 }}>
+                  <Image
+                    source={{ uri: item.image_url }}
+                    style={{ width: "100%", height: 140, borderRadius: 10 }}
+                    resizeMode="cover"
+                  />
+                  <Text style={[s.muted, { marginTop: 4, fontSize: 11 }]}>
+                    📷 Tap photo to enlarge
+                  </Text>
+                </Pressable>
               )}
 
               <Text style={[s.muted, { marginTop: 8 }]}>
